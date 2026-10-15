@@ -12,7 +12,18 @@ npm-shrinkwrap.json
 *.tmp
 *.temp
 Metrics/config/config.js
-SpellChecker/sources/server.js
+
+# Legacy welcome-page example assets — kept verbatim for reference; not part
+# of the new unified welcome page. Formatting them would create churn.
+branding/welcome/example/admin-disabled.html
+branding/welcome/example/docker.html
+branding/welcome/example/example-disabled.html
+branding/welcome/example/k8s.html
+branding/welcome/example/linux.html
+branding/welcome/example/linux-rpm.html
+branding/welcome/example/win.html
+branding/welcome/example/index.html
+branding/welcome/example/css/stylesheet.css
 
 # Patterns merged from .gitignore
 .idea/

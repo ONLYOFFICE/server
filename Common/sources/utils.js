@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 'use strict';
 
 //Fix EPROTO error in node 8.x at some web sites(https://github.com/nodejs/node/issues/21513)
@@ -58,6 +57,13 @@ const NodeCache = require('node-cache');
 const ms = require('ms');
 const constants = require('./constants');
 const commonDefines = require('./commondefines');
+const {
+  planIntegrityChecks,
+  IntegrityStream,
+  getRawContentEncoding,
+  getPresignedChecksumModeHeaders,
+  getPresentIntegrityHeaders
+} = require('./downloadIntegrity');
 const forwarded = require('forwarded');
 const {RequestFilteringHttpAgent, RequestFilteringHttpsAgent} = require('request-filtering-agent');
 const https = require('https');
@@ -223,6 +229,64 @@ exports.listFolders = function (fsPath, optNoSubDir) {
     return list;
   });
 };
+let installedPluginsCache = null;
+const installedPluginsExpire = ms('5m');
+// Drop the cached plugin scan so the next read re-scans; call from the plugins-folder fs.watch.
+exports.invalidateInstalledPluginsCache = function () {
+  installedPluginsCache = null;
+};
+// Scan the local plugins folder once; return each folder that has a readable config.json as {name, guid} (guid null when absent). Cached; empty when plugins are not served from disk.
+exports.getInstalledPlugins = function () {
+  return co(function* () {
+    const now = Date.now();
+    if (installedPluginsCache && now - installedPluginsCache.time < installedPluginsExpire) {
+      return installedPluginsCache.value;
+    }
+    const plugins = [];
+    if (config.has('services.CoAuthoring.server.static_content') && config.has('services.CoAuthoring.plugins.uri')) {
+      const staticContent = config.get('services.CoAuthoring.server.static_content');
+      const pluginsUri = config.get('services.CoAuthoring.plugins.uri');
+      const pluginsPath = staticContent[pluginsUri] && staticContent[pluginsUri].path;
+      if (pluginsPath) {
+        const folders = yield exports.listFolders(pluginsPath, true);
+        for (let i = 0; i < folders.length; ++i) {
+          let raw = null;
+          try {
+            raw = yield fsPromises.readFile(path.join(folders[i], 'config.json'), 'utf8');
+          } catch (_e) {
+            raw = null;
+          }
+          if (raw === null) {
+            continue;
+          }
+          let guid = null;
+          try {
+            const parsed = JSON.parse(raw);
+            guid = typeof parsed.guid === 'string' ? parsed.guid : null;
+          } catch (_e) {
+            guid = null;
+          }
+          plugins.push({name: path.basename(folders[i]), guid});
+        }
+      }
+    }
+    installedPluginsCache = {value: plugins, time: now};
+    return plugins;
+  });
+};
+// Lowercased guid set of installed plugins; gate features on a specific plugin being present.
+exports.getInstalledPluginGuids = function () {
+  return co(function* () {
+    const plugins = yield exports.getInstalledPlugins();
+    const guids = new Set();
+    for (let i = 0; i < plugins.length; ++i) {
+      if (plugins[i].guid) {
+        guids.add(plugins[i].guid.toLowerCase());
+      }
+    }
+    return guids;
+  });
+};
 exports.listObjects = function (fsPath, optNoSubDir) {
   return co(function* () {
     let stats;
@@ -281,7 +345,33 @@ function isAllowDirectRequest(ctx, uri, isInJwtToken) {
   }
   return res;
 }
-function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions) {
+// an ipv4-mapped ipv6 address is the same host as its ipv4 form, so callers compare and classify the ipv4 one
+function classifyAddress(address) {
+  if (!ipaddr.isValid(address)) {
+    return undefined;
+  }
+  let parsed = ipaddr.parse(address);
+  if ('ipv6' === parsed.kind() && parsed.isIPv4MappedAddress()) {
+    parsed = parsed.toIPv4Address();
+  }
+  const range = parsed.range();
+  return {normalized: parsed.toString(), range, isPublic: 'unicast' === range};
+}
+exports.classifyAddress = classifyAddress;
+// the agent checks allowIPAddressList before its own meta, private and deny checks, so this is the last line against a caller lifting one of those
+const NEVER_LIFTED_RANGES = new Set(['linkLocal', 'unspecified', 'broadcast', 'multicast']);
+function toLiftedAddressList(ctx, addresses, denyIPAddressList) {
+  const denied = new Set((denyIPAddressList ?? []).map(address => classifyAddress(address)?.normalized ?? address));
+  return (addresses ?? []).filter(address => {
+    const info = classifyAddress(address);
+    if (!info || NEVER_LIFTED_RANGES.has(info.range) || denied.has(info.normalized)) {
+      ctx.logger.warn('addExternalRequestOptions refuses to lift the private-ip filter for address = %s', address);
+      return false;
+    }
+    return true;
+  });
+}
+function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions, opt_filterAllowIPs) {
   let res = false;
   const tenExternalRequestAction = ctx.getCfg('externalRequest.action', cfgExternalRequestAction);
   const tenRequestFilteringAgent = ctx.getCfg('services.CoAuthoring.request-filtering-agent', cfgRequesFilteringAgent);
@@ -289,33 +379,44 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
     res = true;
   } else if (tenExternalRequestAction.allow) {
     res = true;
-    if (tenExternalRequestAction.blockPrivateIP) {
+    const proxyUrl = tenExternalRequestAction.proxyUrl;
+    // A configured proxy owns destination filtering; the agents would only judge the proxy address.
+    if (tenExternalRequestAction.blockPrivateIP && !proxyUrl) {
+      const filteringOptions = {...tenRequestFilteringAgent};
+      // addresses the caller has already judged, lifted for this request only
+      const lifted = toLiftedAddressList(ctx, opt_filterAllowIPs, tenRequestFilteringAgent.denyIPAddressList);
+      if (lifted.length > 0) {
+        filteringOptions.allowIPAddressList = [...(filteringOptions.allowIPAddressList ?? []), ...lifted];
+        ctx.logger.debug('addExternalRequestOptions allowIPAddressList=%j', filteringOptions.allowIPAddressList);
+      }
       options.httpsAgent = new RequestFilteringHttpsAgent({
         ...httpsAgentOptions,
-        ...tenRequestFilteringAgent
+        ...filteringOptions
       });
       options.httpAgent = new RequestFilteringHttpAgent({
         ...httpAgentOptions,
-        ...tenRequestFilteringAgent
+        ...filteringOptions
       });
     }
-    if (tenExternalRequestAction.proxyUrl) {
-      const proxyUrl = tenExternalRequestAction.proxyUrl;
+    if (proxyUrl) {
       const parsedProxyUrl = url.parse(proxyUrl);
 
+      // axios tunnels https targets with CONNECT and forward-proxies plain http itself
       options.proxy = {
         host: parsedProxyUrl.hostname,
         port: parsedProxyUrl.port,
         protocol: parsedProxyUrl.protocol
       };
+      if (tenExternalRequestAction.proxyUser?.username) {
+        // this sets a `Proxy-Authorization` header, overwriting any custom one set through `headers`
+        options.proxy.auth = tenExternalRequestAction.proxyUser;
+      }
     }
-
-    if (tenExternalRequestAction.proxyUser?.username) {
-      //This will set an `Proxy-Authorization` header, overwriting any existing
-      //`Proxy-Authorization` custom headers you have set using `headers`.
-      options.proxy.auth = tenExternalRequestAction.proxyUser;
-    }
-    if (tenExternalRequestAction.proxyHeaders) {
+    if (tenExternalRequestAction.proxyHeaders && Object.keys(tenExternalRequestAction.proxyHeaders).length > 0) {
+      // With CONNECT the proxy never sees https request headers, so merging these would leak them to the target instead
+      if (uri.startsWith('https:')) {
+        throw new Error('externalRequest.action.proxyHeaders is not supported for HTTPS requests');
+      }
       options.headers = {
         ...options.headers,
         ...tenExternalRequestAction.proxyHeaders
@@ -324,6 +425,11 @@ function addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOpt
   }
   return res;
 }
+// Canonicalize an external URI with the serializer the egress layer applies, so callers match on the exact bytes that will be fetched.
+function normalizeExternalUri(uri) {
+  return URI.serialize(URI.parse(uri));
+}
+exports.normalizeExternalUri = normalizeExternalUri;
 /*
  * @param {object} options - The options object to modify.
  */
@@ -339,33 +445,57 @@ function changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, htt
     httpAgentOptions.keepAlive = !!options.forever;
     httpsAgentOptions.keepAlive = !!options.forever;
   }
+  // checksumVerification is an internal option consumed before this call, not an axios/agent option
+  delete options.checksumVerification;
+  delete httpAgentOptions.checksumVerification;
+  delete httpsAgentOptions.checksumVerification;
 }
 /*
- * Download a URL and return the response.
+ * Downloads a URL and returns the response.
  * @param {operationContext.Context} ctx - The operation context.
  * @param {string} uri - The URL to download.
- * @param {object} optTimeout - Optional timeout configuration.
- * @param {number} optLimit - Optional limit on the size of the response.
- * @param {string} opt_Authorization - Optional authorization header.
- * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
- * @param {object} opt_headers - Optional headers to include in the request.
- * @param {boolean} opt_returnStream - Optional flag to return stream.
- * @returns {Promise<{response: axios.AxiosResponse, sha256: string|null, body: Buffer|null, stream: NodeJS.ReadableStream|null}>} - A promise that resolves to object containing response, sha256 hash, and body (null if opt_streamWriter is provided).
+ * @param {object} [opts] - Options.
+ * @param {object} [opts.timeout] - Timeout config: `wholeCycle` and `connectionAndInactivity` duration strings.
+ * @param {number} [opts.limit] - Max response size in bytes.
+ * @param {string} [opts.authorization] - Authorization token added to the outbox header.
+ * @param {boolean} [opts.isInJwtToken] - Whether the URL originates from a JWT token (bypasses private IP filter).
+ * @param {object} [opts.headers] - Additional request headers.
+ * @param {boolean} [opts.returnStream] - Return a readable stream instead of buffering the body.
+ * @param {Function} [opts.beforeRedirect] - Called before following a redirect; throw to cancel.
+ * @param {{source: string, nodeAlgorithm: string, expectedBase64: string}} [opts.expectedDigest] - Caller-provided digest of the decoded contents, verified like a response digest.
+ * @returns {Promise<{response: axios.AxiosResponse, body: Buffer|null, stream: NodeJS.ReadableStream|null}>}
  */
-async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorization, opt_filterPrivate, opt_headers, opt_returnStream) {
+async function downloadUrlPromise(
+  ctx,
+  uri,
+  {
+    timeout,
+    limit,
+    authorization,
+    isInJwtToken,
+    headers: extraHeaders,
+    returnStream,
+    beforeRedirect,
+    maxRedirects,
+    expectedDigest,
+    filterAllowIPs
+  } = {}
+) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
-  const sizeLimit = optLimit || Number.MAX_VALUE;
+  const sizeLimit = limit || Number.MAX_VALUE;
   uri = URI.serialize(URI.parse(uri));
   const options = config.util.cloneDeep(tenTenantRequestDefaults);
+  // Enabled unless requestDefaults.checksumVerification is explicitly set to false
+  const tenChecksumVerification = false !== options.checksumVerification;
 
   //baseRequest creates new agent(win-ca injects in globalAgent)
   const httpsAgentOptions = {...https.globalAgent.options, ...options};
   const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
 
-  if (!addExternalRequestOptions(ctx, uri, opt_filterPrivate, options, httpAgentOptions, httpsAgentOptions)) {
+  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions, filterAllowIPs)) {
     throw new Error('Block external request. See externalRequest config options');
   }
 
@@ -375,11 +505,18 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
   }
 
   const headers = {...options.headers};
-  if (opt_Authorization) {
-    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+  if (authorization) {
+    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + authorization;
   }
-  if (opt_headers) {
-    Object.assign(headers, opt_headers);
+  if (tenChecksumVerification) {
+    // Ask RFC 9530 servers for a representation and content digest (negotiated by separate headers); verified only on identity responses
+    headers['Want-Repr-Digest'] = 'sha-256=10';
+    headers['Want-Content-Digest'] = 'sha-256=10';
+  }
+  // Replay x-amz-checksum-mode only when the presigned URL was signed with it, so S3 returns the checksum without a 403
+  Object.assign(headers, getPresignedChecksumModeHeaders(uri));
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
   }
 
   const axiosConfig = {
@@ -388,8 +525,10 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
     method: 'GET',
     responseType: 'stream',
     headers,
-    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
-    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined
+    signal: timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(timeout.wholeCycle)) : undefined,
+    timeout: timeout?.connectionAndInactivity ? ms(timeout.connectionAndInactivity) : undefined,
+    beforeRedirect,
+    ...(maxRedirects !== undefined && {maxRedirects})
   };
   try {
     const response = await axios(axiosConfig);
@@ -409,30 +548,63 @@ async function downloadUrlPromise(ctx, uri, optTimeout, optLimit, opt_Authorizat
       response.data.destroy(error);
       throw error;
     }
-    const limitedStream = new SizeLimitStream(optLimit);
-    if (opt_returnStream) {
-      // When returning a stream, we'll return the response for the caller to handle streaming
-      // The content-length check is already done above
-      return {response, sha256: null, body: null, stream: response.data.pipe(limitedStream)};
+    const rawContentEncoding = getRawContentEncoding(response);
+    const integrityPlan = tenChecksumVerification ? planIntegrityChecks(headers, status, rawContentEncoding, expectedDigest) : null;
+    if (tenChecksumVerification && !integrityPlan?.digest) {
+      // Report integrity headers that arrived but were not verifiable, so a skip is not indistinguishable from no header at all
+      const unusedIntegrityHeaders = getPresentIntegrityHeaders(headers);
+      if (Object.keys(unusedIntegrityHeaders).length > 0) {
+        ctx.logger.debug(
+          'integrity headers not verified: status=%d encoding=%s headers=%j',
+          status,
+          rawContentEncoding || 'identity',
+          unusedIntegrityHeaders
+        );
+      }
     }
-
+    const limitedStream = new SizeLimitStream(limit);
+    const integrityStream = integrityPlan ? new IntegrityStream(integrityPlan, response) : null;
+    // Lets the caller read the verified digest {source, algorithm} after the stream/pipeline finishes; null when nothing was verified
+    const getIntegrity = () => integrityStream?.integrity ?? null;
+    if (integrityStream) {
+      if (returnStream) {
+        // pipe does not forward errors, so size limit failures must reach the returned stream
+        limitedStream.on('error', err => integrityStream.destroy(err));
+        return {response, body: null, stream: response.data.pipe(limitedStream).pipe(integrityStream), getIntegrity};
+      }
+      const body = await pipeline(response.data, limitedStream, integrityStream, buffer);
+      return {response, body, stream: null, getIntegrity};
+    }
+    if (returnStream) {
+      return {response, body: null, stream: response.data.pipe(limitedStream), getIntegrity};
+    }
     const body = await pipeline(response.data, limitedStream, buffer);
-    const sha256 = crypto.createHash('sha256').update(body).digest('hex');
-    return {response, sha256, body, stream: null};
+    return {response, body, stream: null, getIntegrity};
   } catch (err) {
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
     } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      // axios reports its own inactivity timeout as ECONNABORTED, so only a peer reset is worth another attempt
+      if ('ECONNRESET' === err.code) {
+        err.connectionReset = true;
+      }
       err.code = 'ESOCKETTIMEDOUT';
     }
     if (err.status) {
       err.statusCode = err.status;
+    } else if (!err.statusCode) {
+      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
+      err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
   }
 }
 
-async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSize, optTimeout, opt_Authorization, opt_isInJwtToken, opt_headers) {
+async function postRequestPromise(
+  ctx,
+  uri,
+  {data, dataStream, dataSize, timeout, authorization, isInJwtToken, headers: extraHeaders, beforeRedirect, maxRedirects, filterAllowIPs} = {}
+) {
   const tenTenantRequestDefaults = ctx.getCfg('services.CoAuthoring.requestDefaults', cfgRequestDefaults);
   const tenTokenOutboxHeader = ctx.getCfg('services.CoAuthoring.token.outbox.header', cfgTokenOutboxHeader);
   const tenTokenOutboxPrefix = ctx.getCfg('services.CoAuthoring.token.outbox.prefix', cfgTokenOutboxPrefix);
@@ -443,7 +615,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   const httpAgentOptions = {...http.globalAgent.options, ...options};
   changeOptionsForCompatibilityWithRequest(options, httpAgentOptions, httpsAgentOptions);
 
-  if (!addExternalRequestOptions(ctx, uri, opt_isInJwtToken, options, httpAgentOptions, httpsAgentOptions)) {
+  if (!addExternalRequestOptions(ctx, uri, isInJwtToken, options, httpAgentOptions, httpsAgentOptions, filterAllowIPs)) {
     throw new Error('Block external request. See externalRequest config options');
   }
 
@@ -453,19 +625,19 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
   }
 
   const headers = {...options.headers};
-  if (opt_Authorization) {
-    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + opt_Authorization;
+  if (authorization) {
+    headers[tenTokenOutboxHeader] = tenTokenOutboxPrefix + authorization;
   }
-  if (opt_headers) {
-    Object.assign(headers, opt_headers);
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
   }
-  if (undefined !== postDataSize) {
+  if (undefined !== dataSize) {
     //If no Content-Length is set, data will automatically be encoded in HTTP Chunked transfer encoding,
     //so that server knows when the data ends. The Transfer-Encoding: chunked header is added.
     //https://nodejs.org/api/http.html#requestwritechunk-encoding-callback
     //issue with Transfer-Encoding: chunked wopi and sharepoint 2019
     //https://community.alteryx.com/t5/Dev-Space/Download-Tool-amp-Microsoft-SharePoint-Chunked-Request-Error/td-p/735824
-    headers['Content-Length'] = postDataSize;
+    headers['Content-Length'] = dataSize;
   }
 
   const axiosConfig = {
@@ -473,31 +645,33 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     url: uri,
     method: 'POST',
     headers,
-    signal: optTimeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(optTimeout.wholeCycle)) : undefined,
-    timeout: optTimeout?.connectionAndInactivity ? ms(optTimeout.connectionAndInactivity) : undefined
+    signal: timeout?.wholeCycle && AbortSignal.timeout ? AbortSignal.timeout(ms(timeout.wholeCycle)) : undefined,
+    timeout: timeout?.connectionAndInactivity ? ms(timeout.connectionAndInactivity) : undefined,
+    beforeRedirect,
+    ...(maxRedirects !== undefined && {maxRedirects})
   };
 
-  if (postData) {
-    axiosConfig.data = postData;
-  } else if (postDataStream) {
-    axiosConfig.data = postDataStream;
+  if (data) {
+    axiosConfig.data = data;
+  } else if (dataStream) {
+    axiosConfig.data = dataStream;
   }
 
   try {
     const response = await axios(axiosConfig);
-    const {status, headers, data} = response;
+    const {status, headers, data: responseData} = response;
 
     if (status === 200 || status === 204) {
       return {
         response: {
           statusCode: status,
           headers,
-          body: data
+          body: responseData
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(responseData)
       };
     } else {
-      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${data}`);
+      const error = new Error(`Error response: statusCode:${status}; headers:${JSON.stringify(headers)}; body:\r\n${responseData}`);
       error.status = status;
       error.response = response;
       throw error;
@@ -506,10 +680,17 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
     } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      // axios reports its own inactivity timeout as ECONNABORTED, so only a peer reset is worth another attempt
+      if ('ECONNRESET' === err.code) {
+        err.connectionReset = true;
+      }
       err.code = 'ESOCKETTIMEDOUT';
     }
     if (err.status) {
       err.statusCode = err.status;
+    } else if (!err.statusCode) {
+      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
+      err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
   }
@@ -523,7 +704,7 @@ async function postRequestPromise(ctx, uri, postData, postDataStream, postDataSi
  * @param {*} opt_body - Optional request body data.
  * @param {object} opt_timeout - Optional timeout configuration.
  * @param {number} opt_limit - Optional limit on the size of the response.
- * @param {boolean} opt_filterPrivate - Optional flag to filter private requests.
+ * @param {boolean} opt_filterPrivate - Optional flag: true treats the URL as trusted (in JWT) and may bypass the private-IP filter.
  * @param {Object} [opt_axiosConfig={}] - Optional additional axios configuration options.
  * @returns {Promise<{response: axios.AxiosResponse, stream: SizeLimitStream}>} - A promise that resolves to an object containing the raw Axios response and a SizeLimitStream.
  */
@@ -588,10 +769,17 @@ async function httpRequest(ctx, method, uri, opt_headers, opt_body, opt_timeout,
     if ('ERR_CANCELED' === err.code) {
       err.code = 'ETIMEDOUT';
     } else if (['ECONNABORTED', 'ECONNRESET'].includes(err.code)) {
+      // axios reports its own inactivity timeout as ECONNABORTED, so only a peer reset is worth another attempt
+      if ('ECONNRESET' === err.code) {
+        err.connectionReset = true;
+      }
       err.code = 'ESOCKETTIMEDOUT';
     }
     if (err.status) {
       err.statusCode = err.status;
+    } else if (!err.statusCode) {
+      // Unwrap cause chain: AxiosError.cause -> RedirectionError.cause -> original error with statusCode
+      err.statusCode = err.cause?.statusCode ?? err.cause?.cause?.statusCode;
     }
     throw err;
   }
@@ -606,6 +794,7 @@ exports.mapAscServerErrorToOldError = function (error) {
   switch (error) {
     case constants.NO_ERROR:
     case constants.CONVERT_CELLLIMITS:
+    case constants.CONVERT_ROWLIMITS:
       res = 0;
       break;
     case constants.TASK_QUEUE:
@@ -974,7 +1163,7 @@ function stream2Buffer(stream) {
 }
 exports.stream2Buffer = stream2Buffer;
 function changeOnlyOfficeUrl(inputUrl, strPath, optFilename) {
-  //onlyoffice file server expects url end with file extension
+  // File server expects the URL to end with a file extension
   if (-1 == inputUrl.indexOf('?')) {
     inputUrl += '?';
   } else {
@@ -999,29 +1188,37 @@ function pipeHttpStreams(from, to) {
   });
 }
 exports.pipeHttpStreams = pipeHttpStreams;
-function checkIpFilter(ctx, ipString, opt_hostname) {
+// report the rule that matched, so callers can tell an explicit admin allow from "no rule matched"
+function checkIpFilterDetailed(ctx, ipString, opt_hostname) {
   const tenIpFilterRules = ctx.getCfg('services.CoAuthoring.ipfilter.rules', cfgIpFilterRules);
 
   let status = 0;
+  let matchedRule;
   let ip4;
   let ip6;
+  let ip6Short;
   if (ipaddr.isValid(ipString)) {
     const ip = ipaddr.parse(ipString);
+    let ip6Address;
     if ('ipv6' === ip.kind()) {
+      ip6Address = ip;
       if (ip.isIPv4MappedAddress()) {
         ip4 = ip.toIPv4Address().toString();
       }
-      ip6 = ip.toNormalizedString();
     } else {
       ip4 = ip.toString();
-      ip6 = ip.toIPv4MappedAddress().toNormalizedString();
+      ip6Address = ip.toIPv4MappedAddress();
     }
+    // an administrator writes ::1, not its expanded form, so a rule is matched against both spellings of the same address
+    ip6 = ip6Address.toNormalizedString();
+    ip6Short = ip6Address.toString();
   }
 
   for (let i = 0; i < tenIpFilterRules.length; ++i) {
     const rule = tenIpFilterRules[i];
     const exp = getIpFilterRule(rule.address);
-    if ((opt_hostname && exp.test(opt_hostname)) || (ip4 && exp.test(ip4)) || (ip6 && exp.test(ip6))) {
+    if ((opt_hostname && exp.test(opt_hostname)) || (ip4 && exp.test(ip4)) || (ip6 && exp.test(ip6)) || (ip6Short && exp.test(ip6Short))) {
+      matchedRule = rule;
       if (!rule.allowed) {
         const tenIpFilterErrorCode = ctx.getCfg('services.CoAuthoring.ipfilter.errorcode', cfgIpFilterErrorCode);
         status = tenIpFilterErrorCode;
@@ -1029,7 +1226,11 @@ function checkIpFilter(ctx, ipString, opt_hostname) {
       break;
     }
   }
-  return status;
+  return {status, matchedRule};
+}
+exports.checkIpFilterDetailed = checkIpFilterDetailed;
+function checkIpFilter(ctx, ipString, opt_hostname) {
+  return checkIpFilterDetailed(ctx, ipString, opt_hostname).status;
 }
 exports.checkIpFilter = checkIpFilter;
 function* checkHostFilter(ctx, hostname) {
@@ -1095,6 +1296,38 @@ function isEmptyObject(val) {
   return !(val && Object.keys(val).length);
 }
 exports.isEmptyObject = isEmptyObject;
+// Overlay a verified JWT's claims onto a params object: base claims first, then payload, then query win.
+// JSON.parse gives `__proto__` as an own property and Object.assign writes it through the setter, so a token carrying one would install
+// inherited fields that Object.keys and every gate rule miss while the consumer reads them as ordinary values.
+const UNSAFE_MERGE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function assignOwnSafe(target, source) {
+  for (const key of Object.keys(source)) {
+    if (!UNSAFE_MERGE_KEYS.has(key)) {
+      target[key] = source[key];
+    }
+  }
+  return target;
+}
+// A signed url authorizes that url and nothing further, so a privileged fetch must not follow a redirect: the target is not signed,
+// and the direct-request exemption granted for the first hop would carry over to it.
+function blockPrivilegedRedirect(_options, responseDetails) {
+  const err = new Error(`redirect ${responseDetails.statusCode} blocked for a url whose privileges cannot follow it`);
+  err.statusCode = responseDetails.statusCode;
+  throw err;
+}
+exports.blockPrivilegedRedirect = blockPrivilegedRedirect;
+exports.assignOwnSafe = assignOwnSafe;
+function mergeJwtDecodedParams(target, decoded) {
+  assignOwnSafe(target, decoded);
+  if (!isEmptyObject(decoded.payload)) {
+    assignOwnSafe(target, decoded.payload);
+  }
+  if (!isEmptyObject(decoded.query)) {
+    assignOwnSafe(target, decoded.query);
+  }
+  return target;
+}
+exports.mergeJwtDecodedParams = mergeJwtDecodedParams;
 function getSecretByElem(secretElem) {
   let secret;
   if (secretElem) {
@@ -1111,30 +1344,73 @@ function getSecretByElem(secretElem) {
   return secret;
 }
 exports.getSecretByElem = getSecretByElem;
-const jwtKeyCache = Object.create(null);
+//separate caches per material type, so a string and a Buffer can never share a cache entry
+const jwtHsKeysByString = new Map();
+const jwtHsKeysByBuffer = new Map();
+/**
+ * Tells whether a value can be used as HS256/HS384/HS512 key material.
+ * The single source of truth for every sign and verify path, so a caller never has to infer it from a cache lookup.
+ * @param {*} secret - candidate JWT symmetric secret
+ * @returns {boolean} true for a non-empty string or Buffer
+ */
+function isJwtHsKeyMaterial(secret) {
+  //modern Node builds a usable KeyObject from zero bytes, so empty material is refused before it can sign or verify
+  if (typeof secret === 'string') {
+    return 0 !== secret.length;
+  }
+  return Buffer.isBuffer(secret) && 0 !== secret.length;
+}
+exports.isJwtHsKeyMaterial = isJwtHsKeyMaterial;
 /**
  * Gets or creates a cached symmetric key for JWT verification (HS256/HS384/HS512).
  * Caches crypto.KeyObject to avoid expensive key creation on every request.
- * Uses the same validation approach as jsonwebtoken library.
  * @param {string|Buffer} secret - JWT symmetric secret
  * @returns {crypto.KeyObject|undefined} Cached secret key object, or undefined when secret is missing/invalid
  */
 function getJwtHsKey(secret) {
-  let res = jwtKeyCache[secret];
-  if (!res && secret != null) {
+  //material is validated before the lookup, so an absent secret can never pick up another tenant's key
+  if (!isJwtHsKeyMaterial(secret)) {
+    return undefined;
+  }
+  const isBuffer = Buffer.isBuffer(secret);
+  const cache = isBuffer ? jwtHsKeysByBuffer : jwtHsKeysByString;
+  //base64 keeps bytes distinct, unlike the utf8 coercion that maps every invalid byte to the same replacement character
+  const cacheKey = isBuffer ? secret.toString('base64') : secret;
+  let res = cache.get(cacheKey);
+  if (!res) {
     try {
-      res = jwtKeyCache[secret] = crypto.createSecretKey(typeof secret === 'string' ? Buffer.from(secret, 'utf8') : secret);
+      res = crypto.createSecretKey(isBuffer ? secret : Buffer.from(secret, 'utf8'));
     } catch {
       return undefined;
     }
+    cache.set(cacheKey, res);
   }
   return res;
 }
 exports.getJwtHsKey = getJwtHsKey;
 
-function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
+// derive a per-purpose secret so a token minted for one flow cannot verify as a token of another
+function deriveSecret(secret, purpose) {
+  if (!purpose || null == secret || 0 === secret.length) {
+    return undefined;
+  }
+  const base = typeof secret === 'string' ? Buffer.from(secret, 'utf8') : secret;
+  return crypto.createHmac('sha256', base).update(purpose).digest('hex');
+}
+exports.deriveSecret = deriveSecret;
+
+const OUTBOUND_OPERATIONS = new Set(constants.JWT_OUTBOUND_OPERATIONS);
+function fillJwtForRequest(ctx, operation, payload, secret, opt_inBody) {
   const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
   const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
+  //an outgoing token without its operation could be replayed as any other token signed with the same secret
+  if (!OUTBOUND_OPERATIONS.has(operation)) {
+    throw new Error('fillJwtForRequest: unknown outbound operation');
+  }
+  //a business field of that name would either be overwritten by the claim or pose as one inside the payload wrapper
+  if (Object.prototype.hasOwnProperty.call(payload, constants.JWT_CLAIM_OPERATION)) {
+    throw new Error('fillJwtForRequest: payload carries its own operation');
+  }
   //todo refuse prototypes in payload(they are simple getter/setter).
   //JSON.parse/stringify is more universal but Object.assign is enough for our inputs
   payload = Object.assign(Object.create(null), payload);
@@ -1144,8 +1420,13 @@ function fillJwtForRequest(ctx, payload, secret, opt_inBody) {
   } else {
     data = {payload};
   }
+  data[constants.JWT_CLAIM_OPERATION] = operation;
 
   const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
+  //signing without usable key material is a configuration failure, never something to paper over with a fallback key
+  if (!isJwtHsKeyMaterial(secret)) {
+    throw new Error('fillJwtForRequest: missing or invalid jwt secret');
+  }
   return jwt.sign(data, getJwtHsKey(secret), options);
 }
 exports.fillJwtForRequest = fillJwtForRequest;
@@ -1184,6 +1465,16 @@ exports.getConnectionInfoStr = function (conn) {
 };
 exports.isLiveViewer = function (conn) {
   return conn.user?.view && 'fast' === conn.coEditingMode;
+};
+// connection count mode: edit, view or liveview
+exports.getConnectionCountMode = function (conn) {
+  if (exports.isLiveViewer(conn)) {
+    return 'liveview';
+  }
+  if (conn.isCloseCoAuthoring || conn.user?.view) {
+    return 'view';
+  }
+  return 'edit';
 };
 exports.isLiveViewerSupport = function (licenseInfo) {
   return licenseInfo.connectionsView > 0 || licenseInfo.usersViewCount > 0;
@@ -1382,6 +1673,24 @@ class SizeLimitStream extends Transform {
     callback(null, chunk);
   }
 }
+
+class HashSizeStream extends Transform {
+  constructor() {
+    super();
+    this._hash = crypto.createHash('sha256');
+    this.byteCount = 0;
+  }
+  _transform(chunk, _encoding, callback) {
+    this._hash.update(chunk);
+    this.byteCount += chunk.length;
+    callback(null, chunk);
+  }
+  get sha256() {
+    return this._hash.digest('hex');
+  }
+}
+exports.HashSizeStream = HashSizeStream;
+
 exports.getLicensePeriod = function (startDate, now) {
   startDate = new Date(startDate.getTime()); //clone
   startDate.addMonths(getMonthDiff(startDate, now));
@@ -1483,6 +1792,69 @@ async function getFsType(ctx, path) {
 }
 
 /**
+ * Detects whether filePath sits on a different mount than its directory (e.g. a single-file bind mount)
+ * @param {operationContext} ctx - Operation context
+ * @param {string} filePath - File path to check
+ * @param {string} dirPath - Directory path to compare against
+ * @returns {Promise<boolean>} True when the file is on a separate device/mount
+ */
+async function isSeparateMount(ctx, filePath, dirPath) {
+  try {
+    const [fileStat, dirStat] = await Promise.all([fsPromises.stat(filePath), fsPromises.stat(dirPath)]);
+    return fileStat.dev !== dirStat.dev;
+  } catch (err) {
+    // Missing file cannot be a single-file bind mount; let native watch handle creation
+    ctx.logger.info(`isSeparateMount error: ${filePath}: ${err.message}`);
+    return false;
+  }
+}
+
+/**
+ * Decodes octal escapes (e.g. \040 space, \011 tab) used for special characters in /proc mountinfo fields
+ * @param {string} field - Raw mountinfo field
+ * @returns {string} Unescaped field
+ */
+function unescapeMountInfoField(field) {
+  return field.replace(/\\([0-7]{3})/g, (_match, octal) => String.fromCharCode(parseInt(octal, 8)));
+}
+
+/**
+ * Detects whether filePath is itself a mount point (e.g. a single-file bind mount) via /proc/self/mountinfo
+ * @param {operationContext} ctx - Operation context
+ * @param {string} filePath - File path to check
+ * @returns {Promise<boolean>} True when filePath appears as a mount point; false when undetectable
+ */
+async function isMountPoint(ctx, filePath) {
+  // mountinfo stores canonical absolute paths, so resolve symlinks and relative inputs before comparing
+  let target;
+  try {
+    target = await fsPromises.realpath(filePath);
+  } catch {
+    target = path.resolve(filePath);
+  }
+  try {
+    const mountInfo = await fsPromises.readFile('/proc/self/mountinfo', 'utf8');
+    for (const line of mountInfo.split('\n')) {
+      if (!line) {
+        continue;
+      }
+      // fields before the " - " separator are space-separated; index 4 is the mount point with octal escapes
+      const mountField = line.split(' - ')[0].split(' ')[4];
+      if (mountField && unescapeMountInfoField(mountField) === target) {
+        return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    // no /proc (non-Linux) or unreadable mountinfo: cannot detect, stay safe and let other signals decide
+    if ('linux' === process.platform) {
+      ctx.logger.info(`isMountPoint unavailable for ${target}: ${err.message}`);
+    }
+    return false;
+  }
+}
+
+/**
  * File watcher with native events fallback to polling
  * @param {operationContext} ctx - Operation context
  * @param {string} dirPath - Directory path to watch
@@ -1493,8 +1865,13 @@ async function getFsType(ctx, path) {
  */
 exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, filePath, listener, opts = {}) {
   const fsType = await getFsType(ctx, dirPath);
-  if (null === fsType || UNSAFE_MAGIC.has(fsType)) {
-    ctx.logger.info(`watchWithFallback fs type=${fsType} unsupport watch. fallback to watchFile ${filePath}`);
+  // Native dir watch is blind to a single-file bind mount; it can share st_dev with the dir, so also check mountinfo
+  const separateMount = await isSeparateMount(ctx, filePath, dirPath);
+  const mountPoint = await isMountPoint(ctx, filePath);
+  if (null === fsType || UNSAFE_MAGIC.has(fsType) || separateMount || mountPoint) {
+    ctx.logger.info(
+      `watchWithFallback fs type=${fsType} separateMount=${separateMount} mountPoint=${mountPoint} unsupport watch. fallback to watchFile ${filePath}`
+    );
     return fs.watchFile(filePath, opts, listener);
   }
 
@@ -1513,6 +1890,31 @@ exports.watchWithFallback = async function watchWithFallback(ctx, dirPath, fileP
     return fs.watchFile(filePath, opts, listener);
   }
 };
+
+/**
+ * Reads a file while guarding against catching it mid-write by comparing stat before and after the read
+ * @param {operationContext} ctx - Operation context
+ * @param {string} filePath - File path to read
+ * @param {number} attempts - Maximum read attempts before giving up
+ * @returns {Promise<string>} File contents as utf8; throws an EUNSTABLE error when the file keeps changing
+ */
+async function readFileStable(ctx, filePath, attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const before = await fsPromises.stat(filePath);
+    const data = await fsPromises.readFile(filePath, 'utf8');
+    const after = await fsPromises.stat(filePath);
+    // stable when size and mtime did not change around the read, otherwise a write was in progress
+    if (before.mtimeMs === after.mtimeMs && before.size === after.size) {
+      return data;
+    }
+    ctx.logger.debug(`readFileStable unstable read attempt ${attempt}: ${filePath}`);
+  }
+  const err = new Error(`readFileStable unstable after ${attempts} attempts: ${filePath}`);
+  err.code = 'EUNSTABLE';
+  throw err;
+}
+exports.readFileStable = readFileStable;
+
 /**
  * Underlying get mechanism
  *

@@ -75,10 +75,5 @@
       "docbuilderPath": "/var/www/onlyoffice/documentserver/server/FileConverter/bin/docbuilder",
       "signingKeyStorePath": "/var/www/onlyoffice/documentserver/../Data/signing-keystore.p12"
     }
-  },
-  "SpellChecker": {
-    "server": {
-      "dictDir": "/var/www/onlyoffice/documentserver/dictionaries"
-    }
   }
 }

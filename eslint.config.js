@@ -8,19 +8,7 @@ const gitignorePath = path.resolve(__dirname, '.gitignore');
 module.exports = [
   includeIgnoreFile(gitignorePath),
   {
-    ignores: [
-      'node_modules/',
-      'dist/',
-      'build/',
-      'coverage/',
-      '.next/',
-      'out/',
-      '*.min.js',
-      'package-lock.json',
-      'npm-shrinkwrap.json',
-      'SpellChecker/**',
-      'Metrics/**'
-    ]
+    ignores: ['node_modules/', 'dist/', 'build/', 'coverage/', '.next/', 'out/', '*.min.js', 'package-lock.json', 'npm-shrinkwrap.json', 'Metrics/**']
   },
   js.configs.recommended,
   {

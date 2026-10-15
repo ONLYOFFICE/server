@@ -45,6 +45,8 @@ const operationContext = require('../../../Common/sources/operationContext');
 const router = express.Router();
 
 const cfgDocumentFormatsFile = config.get('services.CoAuthoring.server.documentFormatsFile');
+const cfgDocbuilderEnable = config.get('services.CoAuthoring.server.docbuilderEnable');
+const cfgConvertServiceEnable = config.get('services.CoAuthoring.server.convertServiceEnable');
 
 const LOCALE_SUBDIR = path.join('apps', 'documenteditor', 'main', 'locale');
 
@@ -105,6 +107,9 @@ router.get('/config', async (req, res) => {
     const webAppsPath = ctx.config?.services?.CoAuthoring?.server?.static_content?.['/web-apps']?.path;
     const langs = webAppsPath ? await getSupportedLocales(ctx, webAppsPath) : [];
 
+    const convertServiceEnabled = !!ctx.getCfg('services.CoAuthoring.server.convertServiceEnable', cfgConvertServiceEnable);
+    const docbuilderEnabled = !!ctx.getCfg('services.CoAuthoring.server.docbuilderEnable', cfgDocbuilderEnable);
+
     const clientConfig = {
       authorization: {
         header: ctx.config?.services?.CoAuthoring?.token?.inbox?.header,
@@ -112,15 +117,23 @@ router.get('/config', async (req, res) => {
       },
       urls: {
         api: `/web-apps/apps/api/documents/api.js`,
-        command: `/command`,
-        converter: `/converter`,
-        docbuilder: `/docbuilder`
+        command: `/command`
       },
       limits: {
         maxFileSize: ctx.config?.FileConverter?.converter?.maxDownloadBytes
       },
       langs
     };
+
+    // discovery semantics: a url is advertised only while its api is enabled
+    if (convertServiceEnabled) {
+      clientConfig.urls.converter = `/converter`;
+      clientConfig.urls.converterFromFile = `/converter/from-file`;
+    }
+    if (docbuilderEnabled) {
+      clientConfig.urls.docbuilder = `/docbuilder`;
+      clientConfig.urls.docbuilderFromFile = `/docbuilder/from-file`;
+    }
 
     res.json(clientConfig);
   } catch (err) {

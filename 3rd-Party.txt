@@ -63,49 +63,42 @@ License:        MPL 1.1/GPL 2.0/LGPL 2.1
 License File:   license/Hunspell.license
 
 
-10. NodeHun - The Hunspell binding for nodejs that exposes as much of hunspell as possible and also adds new features.
-
-URL:            https://npmjs.org/package/nodehun
-License:        MIT License
-License File:   license/NodeHun.license
-
-
-11. Backbone - Backbone.js gives structure to web applications by providing models with key-value binding and custom events, collections with a rich API of enumerable functions, views with declarative event handling, and connects it all to your existing API over a RESTful JSON interface.
+10. Backbone - Backbone.js gives structure to web applications by providing models with key-value binding and custom events, collections with a rich API of enumerable functions, views with declarative event handling, and connects it all to your existing API over a RESTful JSON interface.
 
 URL:            http://backbonejs.org/
 License:        MIT License
 License File:   license/Backbone.license
 
 
-12. jQuery.browser - A jQuery plugin for browser detection.
+11. jQuery.browser - A jQuery plugin for browser detection.
 
 URL:            http://api.jquery.com/jquery.browser/
 License:        MIT License
 License File:   license/jQuery.browser.license
 
 
-13. PerfectScrollbar - Tiny but perfect jQuery scrollbar plugin.
+12. PerfectScrollbar - Tiny but perfect jQuery scrollbar plugin.
 
 URL:            http://noraesae.github.com/perfect-scrollbar/
 License:        MIT License
 License File:   license/PerfectScrollbar.license
 
 
-14. jsrsasign - The 'jsrsasign' (RSA-Sign JavaScript Library) is a open source free pure JavaScript implementation of PKCS#1 v2.1 RSASSA-PKCS1-v1_5 RSA signing and validation algorithm.
+13. jsrsasign - The 'jsrsasign' (RSA-Sign JavaScript Library) is a open source free pure JavaScript implementation of PKCS#1 v2.1 RSASSA-PKCS1-v1_5 RSA signing and validation algorithm.
 
 URL:            http://kjur.github.io/jsrsasign/
 License:        MIT License
 License File:   license/jsrsasign.license
 
 
-15. less - Less is a CSS pre-processor
+14. less - Less is a CSS pre-processor
 
 URL:            http://lesscss.org/
 License:        Apache 2 License
 License File:   license/less.license
 
 
-16. requirejs-text - A RequireJS/AMD loader plugin for loading text resources
+15. requirejs-text - A RequireJS/AMD loader plugin for loading text resources
 
 URL:            http://lesscss.org/
 License:        MIT License

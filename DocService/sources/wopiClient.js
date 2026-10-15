@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 'use strict';
 
 const crypto = require('crypto');
@@ -40,7 +39,6 @@ const path = require('path');
 const {pipeline} = require('node:stream/promises');
 const {URL} = require('url');
 const co = require('co');
-const jwt = require('jsonwebtoken');
 const config = require('config');
 const {createReadStream} = require('fs');
 const {stat, lstat, readdir} = require('fs/promises');
@@ -49,12 +47,14 @@ const mimeDB = require('mime-db');
 const xmlbuilder2 = require('xmlbuilder2');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
+const jwtService = require('./jwtService');
 const commonDefines = require('./../../Common/sources/commondefines');
 const wopiUtils = require('./wopiUtils');
+const wopiEgress = require('./wopiEgress');
 const newFileTemplateUtils = require('./newFileTemplateUtils');
+const templateLocale = require('./../../Common/sources/templateLocale');
 const documentFormats = require('./../../Common/sources/documentFormats');
 const operationContext = require('./../../Common/sources/operationContext');
-const tenantManager = require('./../../Common/sources/tenantManager');
 const sqlBase = require('./databaseConnectors/baseConnector');
 const taskResult = require('./taskresult');
 const canvasService = require('./canvasservice');
@@ -95,10 +95,11 @@ const cfgWopiHost = config.get('wopi.host');
 const cfgWopiDummySampleFilePath = config.get('wopi.dummy.sampleFilePath');
 const cfgDocumentFormatsFile = config.get('services.CoAuthoring.server.documentFormatsFile');
 
-let templatesFolderLocalesCache = null;
 let templatesFolderExtsCache = null;
-const templateFilesSizeCache = {};
+const templateFilesSizeCache = Object.create(null);
 let shutdownFlag = false;
+// domain-separates this input format from future hashed derivations, not from the arbitrary keys the old formula issued
+const WOPI_DOC_ID_HASH_DOMAIN = 'wopi/doc-id/v2';
 
 //patch mimeDB
 if (!mimeDB['application/vnd.visio2013']) {
@@ -128,13 +129,14 @@ async function getTemplatesFolderExts(ctx) {
   if (templatesFolderExtsCache === null) {
     const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
     const dirContent = await readdir(`${tenNewFileTemplate}/${constants.TEMPLATES_DEFAULT_LOCALE}/`, {withFileTypes: true});
+    // the seed has a null prototype, so a lookup answers for the folder contents only and never for an inherited member
     templatesFolderExtsCache = dirContent
       .filter(dirObject => dirObject.isFile())
       .reduce((result, item) => {
         const ext = path.extname(item.name).substring(1);
         result[ext] = ext;
         return result;
-      }, {});
+      }, Object.create(null));
   }
   return templatesFolderExtsCache;
 }
@@ -149,8 +151,7 @@ function discovery(req, res) {
       ctx.logger.info('wopiDiscovery start');
       const tenWopiWopiZone = ctx.getCfg('wopi.wopiZone', cfgWopiWopiZone);
       // Get formats from JSON file, with config override if non-empty array
-      const tenDocumentFormatsFile = ctx.getCfg('services.CoAuthoring.server.documentFormatsFile', cfgDocumentFormatsFile);
-      const formats = yield documentFormats.getAllFormats(tenDocumentFormatsFile);
+      const formats = yield documentFormats.getAllFormats(ctx, cfgDocumentFormatsFile);
       const getFormats = (cfgKey, cfgDefault, fileKey) => {
         const cfgValue = ctx.getCfg(cfgKey, cfgDefault);
         return Array.isArray(cfgValue) && cfgValue.length > 0 ? cfgValue : formats[fileKey];
@@ -230,6 +231,8 @@ function discovery(req, res) {
         for (let j = 0; j < ext.view.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.view[j], default: 'true', urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
+          //read-only interactive preview for SharePoint details pane; reuses embedded view
+          xmlApp.ele('action', {name: 'interactivepreview', ext: ext.view[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.view[j], urlsrc: urlTemplateMobileView}).up();
           if (ext.targetext) {
             const urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
@@ -239,6 +242,8 @@ function discovery(req, res) {
         for (let j = 0; j < ext.edit.length; ++j) {
           xmlApp.ele('action', {name: 'view', ext: ext.edit[j], urlsrc: urlTemplateView}).up();
           xmlApp.ele('action', {name: 'embedview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
+          //read-only interactive preview for SharePoint details pane; reuses embedded view
+          xmlApp.ele('action', {name: 'interactivepreview', ext: ext.edit[j], urlsrc: urlTemplateEmbedView}).up();
           xmlApp.ele('action', {name: 'mobileView', ext: ext.edit[j], urlsrc: urlTemplateMobileView}).up();
           if (formsExts[ext.edit[j]]) {
             xmlApp.ele('action', {name: 'edit', ext: ext.edit[j], default: 'true', requires: 'locks,update', urlsrc: urlTemplateEdit}).up();
@@ -285,6 +290,8 @@ function discovery(req, res) {
               const xmlApp = xmlZone.ele('app', {name: value});
               xmlApp.ele('action', {name: 'view', ext: '', default: 'true', urlsrc: urlTemplateView}).up();
               xmlApp.ele('action', {name: 'embedview', ext: '', urlsrc: urlTemplateEmbedView}).up();
+              //read-only interactive preview for SharePoint details pane; reuses embedded view
+              xmlApp.ele('action', {name: 'interactivepreview', ext: '', urlsrc: urlTemplateEmbedView}).up();
               xmlApp.ele('action', {name: 'mobileView', ext: '', urlsrc: urlTemplateMobileView}).up();
               if (ext.targetext) {
                 const urlConvert = `${templateStart}/convert-and-edit/${ext.view[j]}/${ext.targetext}?${templateEnd}`;
@@ -440,6 +447,22 @@ function getWopiErrorMessage(statusCode) {
   }
 }
 
+// the host explains a refused lock or save only in these headers, so they must survive a non-debug log level
+function getWopiErrorHeaders(headers) {
+  if (!headers) {
+    return undefined;
+  }
+  const wanted = ['x-wopi-lock', 'x-wopi-lockfailurereason', 'x-wopi-servererror', 'x-wopi-invalidfilenameerror'];
+  const res = {};
+  Object.keys(headers).forEach(name => {
+    const lower = name.toLowerCase();
+    if (wanted.includes(lower)) {
+      res[lower] = headers[name];
+    }
+  });
+  return Object.keys(res).length > 0 ? res : undefined;
+}
+
 function isWopiJwtToken(decoded) {
   return !!decoded.fileInfo;
 }
@@ -534,7 +557,7 @@ function checkAndInvalidateCache(ctx, docId, fileInfo) {
 }
 function parsePutFileResponse(ctx, postRes) {
   let body = null;
-  if (postRes.body) {
+  if (postRes?.body) {
     try {
       //collabora nexcloud connector
       body = JSON.parse(postRes.body);
@@ -544,75 +567,136 @@ function parsePutFileResponse(ctx, postRes) {
   }
   return body;
 }
-async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType) {
-  // TODO: throw error if format not supported?
-  if (fileInfo.Size === 0 && fileType.length !== 0) {
-    const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
-
-    //Create new files using Office for the web
-    const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
-
-    if (templatesFolderLocalesCache === null) {
-      const dirContent = await readdir(`${tenNewFileTemplate}/`, {withFileTypes: true});
-      templatesFolderLocalesCache = dirContent.filter(dirObject => dirObject.isDirectory()).map(dirObject => dirObject.name);
-    }
-
-    const localePrefix = lang || ui || 'en';
-    let locale =
-      constants.TEMPLATES_FOLDER_LOCALE_COLLISON_MAP[localePrefix] ?? templatesFolderLocalesCache.find(locale => locale.startsWith(localePrefix));
-    if (locale === undefined) {
-      locale = constants.TEMPLATES_DEFAULT_LOCALE;
-    }
-
-    const templateFileType = newFileTemplateUtils.getNewFileTemplateExt(fileType);
-    const filePath = `${tenNewFileTemplate}/${locale}/new.${templateFileType}`;
-    if (!templateFilesSizeCache[filePath]) {
-      templateFilesSizeCache[filePath] = await lstat(filePath);
-    }
-
-    const templateFileInfo = templateFilesSizeCache[filePath];
-    const templateFileStream = createReadStream(filePath);
-    const postRes = await putFile(
-      ctx,
-      wopiParams,
-      undefined,
-      templateFileStream,
-      templateFileInfo.size,
-      fileInfo.UserId,
-      false,
-      false,
-      false,
-      templateFileType
-    );
-    if (postRes) {
-      //update Size
-      fileInfo.Size = templateFileInfo.size;
-      const body = parsePutFileResponse(ctx, postRes);
-      //collabora nexcloud connector
-      if (body?.LastModifiedTime) {
-        //update LastModifiedTime
-        fileInfo.LastModifiedTime = body.LastModifiedTime;
-      }
-    }
+/**
+ * @param {object} fileInfo
+ * @param {number} size
+ * @param {object|null} info
+ */
+function applyFileInfo(fileInfo, size, info) {
+  fileInfo.Size = size;
+  if (info?.LastModifiedTime != null) {
+    fileInfo.LastModifiedTime = info.LastModifiedTime;
   }
 }
-function createDocId(ctx, wopiSrc, mode, fileInfo) {
-  const fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
-  let docId = undefined;
-  if ('view' !== mode) {
-    docId = `${fileId}`;
-  } else {
-    //todo rename operation requires lock
-    fileInfo.SupportsRename = false;
-    //todo change docId to avoid empty cache after editors are gone
-    if (fileInfo.LastModifiedTime) {
-      docId = `view.${fileId}.${fileInfo.LastModifiedTime}`;
-    } else {
-      docId = `view.${fileId}.${fileInfo.Version}`;
-    }
+/**
+ * @param {object} ctx
+ * @param {string} lang
+ * @param {string} ui
+ * @param {string} fileType
+ * @returns {Promise<{filePath: string, size: number, templateFileType: string}>}
+ */
+async function getNewFileTemplateMeta(ctx, lang, ui, fileType) {
+  const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
+  const locales = await templateLocale.readTemplateFolders(tenNewFileTemplate);
+  // Try lang first, then ui; ui is a real fallback when lang is present but unsupported.
+  const locale = templateLocale.resolveTemplateLocale([lang, ui], locales, constants.TEMPLATES_DEFAULT_LOCALE);
+  const templateFileType = newFileTemplateUtils.getNewFileTemplateExt(fileType);
+  // the same test discovery uses to advertise editnew, so a host can only ask for a template we told it exists
+  const templatesFolderExts = await getTemplatesFolderExts(ctx);
+  if (!templatesFolderExts[templateFileType]) {
+    throw new Error(`new file template: "${templateFileType}" is not an advertised template extension`);
   }
-  docId = docId.replace(constants.DOC_ID_REPLACE_REGEX, '_').substring(0, constants.DOC_ID_MAX_LENGTH);
-  return docId;
+  const templateRoot = path.resolve(tenNewFileTemplate);
+  const filePath = path.join(templateRoot, locale, `new.${templateFileType}`);
+  // independent of the check above, so a later refactor that widens the accepted file type cannot reach outside the folder
+  if (!filePath.startsWith(templateRoot + path.sep)) {
+    throw new Error(`new file template: "${filePath}" escapes "${templateRoot}"`);
+  }
+  if (!templateFilesSizeCache[filePath]) {
+    templateFilesSizeCache[filePath] = lstat(filePath).catch(err => {
+      delete templateFilesSizeCache[filePath];
+      throw err;
+    });
+  }
+  const stat = await templateFilesSizeCache[filePath];
+  return {filePath, size: stat.size, templateFileType};
+}
+/**
+ * @param {object} ctx
+ * @param {object} fileInfo
+ * @param {string} wopiSrc
+ * @param {string} access_token
+ * @param {number} access_token_ttl
+ * @param {string} lang
+ * @param {string} ui
+ * @param {string} fileType
+ */
+async function checkAndReplaceEmptyFile(ctx, fileInfo, wopiSrc, access_token, access_token_ttl, lang, ui, fileType) {
+  // TODO: throw error if format not supported?
+  if (fileInfo.Size !== 0 || !fileType.length) {
+    return;
+  }
+  const {filePath, size, templateFileType} = await getNewFileTemplateMeta(ctx, lang, ui, fileType);
+
+  // Canonical WOPI editnew flow: unlocked PutFile on zero-byte file (spec createnew).
+  // X-WOPI-Lock is not included during document creation per WOPI spec.
+  const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
+  const postRes = await putFile(ctx, wopiParams, undefined, createReadStream(filePath), size, fileInfo.UserId, false, false, false, {
+    returnErrorDetails: true,
+    contentTypeExt: templateFileType
+  });
+
+  if (!postRes?.putFileError) {
+    if (postRes) {
+      //update Size; collabora nexcloud connector
+      applyFileInfo(fileInfo, size, parsePutFileResponse(ctx, postRes));
+    }
+    return;
+  }
+
+  if (postRes.statusCode !== 409) {
+    ctx.logger.error('checkAndReplaceEmptyFile: PutFile failed with status=%d', postRes.statusCode);
+    return;
+  }
+
+  // 409 on an unlocked zero-byte PutFile means another session already initialized the file.
+  // Re-fetch to confirm and pick up the size set by the winning session.
+  ctx.logger.debug(
+    'checkAndReplaceEmptyFile: 409 X-WOPI-Lock=%s X-WOPI-LockFailureReason=%s',
+    postRes.responseHeaders?.['x-wopi-lock'],
+    postRes.responseHeaders?.['x-wopi-lockfailurereason']
+  );
+  const {fileInfo: updatedFileInfo} = await checkFileInfo(ctx, wopiSrc, access_token);
+  if (updatedFileInfo && !updatedFileInfo.error && updatedFileInfo.Size > 0) {
+    applyFileInfo(fileInfo, updatedFileInfo.Size, updatedFileInfo);
+    ctx.logger.info('checkAndReplaceEmptyFile: concurrent create-new 409 resolved - file initialized by another session');
+    return;
+  }
+
+  // Reread still shows Size=0: winner session is mid-write or reread failed.
+  ctx.logger.warn('checkAndReplaceEmptyFile: 409 on create-new PutFile but file is still zero-byte after reread');
+}
+// only the fragment is dropped, because it never reaches the host; every other part of the url is what the launch named
+function getWopiResourceIdentity(wopiSrc) {
+  const parsed = new URL(wopiSrc);
+  if ('http:' !== parsed.protocol && 'https:' !== parsed.protocol) {
+    throw new TypeError(`wopiSrc is not an http(s) url: ${parsed.protocol}`);
+  }
+  parsed.hash = '';
+  return parsed.href;
+}
+// the launch address identifies the document for the whole session; the working address may move with a redirect
+function getDocIdIdentity(userAuth) {
+  return userAuth.wopiSrcOriginal ?? userAuth.wopiSrc;
+}
+// a wopi host is a separate authority, so the document identity is the whole address it was launched from
+function createDocId(ctx, wopiSrc, mode, fileInfo) {
+  // a document nobody can address must fail the open rather than share a key with the next unusable one
+  const resource = getWopiResourceIdentity(wopiSrc);
+  //todo change docId to avoid empty cache after editors are gone
+  // every mode other than view edits the same document, the way the rest of the flow reads it
+  const isView = 'view' === mode;
+  const parts = [WOPI_DOC_ID_HASH_DOMAIN, isView ? 'view' : 'edit', resource];
+  if (isView) {
+    // the old key interpolated the value into a string, so a numeric version keeps naming the same document
+    const version = fileInfo.LastModifiedTime || fileInfo.Version;
+    if (undefined === version || null === version || '' === version) {
+      throw new TypeError('wopi CheckFileInfo reports no version to separate the view cache by');
+    }
+    parts.push(String(version));
+  }
+  // a fixed array of strings serializes unambiguously, so no field can be shifted into the next one
+  return `wopi_${crypto.createHash('sha256').update(JSON.stringify(parts)).digest('base64url')}`;
 }
 async function preOpen(ctx, lockId, docId, fileInfo, userAuth, baseUrl, fileType) {
   //todo move to lock and common info saving to websocket connection
@@ -633,21 +717,24 @@ async function preOpen(ctx, lockId, docId, fileInfo, userAuth, baseUrl, fileType
 /**
  * Prepares document for editing by creating document ID and validating cache
  * @param {operationContext.Context} ctx - The operation context
- * @param {string} wopiSrc - The WOPI source URL
  * @param {Object} fileInfo - File information from WOPI
- * @param {Object} userAuth - User authentication object
+ * @param {Object} userAuth - User authentication object, carrying the launch address the document key is derived from
  * @param {string} fileType - File type
  * @param {string} baseUrl - Base URL for internal file endpoints
  * @param {Object} params - Parameters object to update
  * @returns {Promise<boolean>} Promise resolving to success result
  */
-async function prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, baseUrl, params) {
+async function prepareDocumentForEditing(ctx, fileInfo, userAuth, fileType, baseUrl, params) {
   let retryInViewMode = false;
 
   do {
-    // Create document ID
-    const docId = createDocId(ctx, wopiSrc, userAuth.mode, fileInfo);
+    // a redirect only moves where the file is fetched from, it never renames the document it identifies
+    const docId = createDocId(ctx, getDocIdIdentity(userAuth), userAuth.mode, fileInfo);
     params.key = docId;
+    if ('view' === userAuth.mode) {
+      //todo rename operation requires lock
+      fileInfo.SupportsRename = false;
+    }
 
     // Check and invalidate cache
     const checkRes = await checkAndInvalidateCache(ctx, docId, fileInfo);
@@ -697,7 +784,7 @@ function getEditorHtml(req, res) {
       const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
       const tenWopiFileInfoBlockList = ctx.getCfg('wopi.fileInfoBlockList', cfgWopiFileInfoBlockList);
 
-      const wopiSrc = req.query['wopisrc'];
+      let wopiSrc = req.query['wopisrc'];
       const fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);
       const usid = req.query['usid'] || crypto.randomUUID();
@@ -722,6 +809,8 @@ function getEditorHtml(req, res) {
       // Create user authentication object
       const userAuth = (params.userAuth = {
         wopiSrc,
+        // kept for the lifetime of the session, so a redirect can never move the document identity
+        wopiSrcOriginal: wopiSrc,
         access_token,
         access_token_ttl,
         userSessionId: usid,
@@ -729,13 +818,17 @@ function getEditorHtml(req, res) {
         forcedViewMode: false
       });
 
-      const fileInfo = (params.fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token, sc));
+      const {fileInfo, redirectedWopiSrc} = yield checkFileInfo(ctx, wopiSrc, access_token, sc);
+      params.fileInfo = fileInfo;
       if (!fileInfo || fileInfo.error) {
-        if (fileInfo && fileInfo.error) {
-          params.statusCode = fileInfo.statusCode;
-        }
+        if (fileInfo?.error) params.statusCode = fileInfo.statusCode;
         params.fileInfo = {};
         return;
+      }
+      if (redirectedWopiSrc) {
+        ctx.logger.info('wopiEditor: updating wopiSrc after redirect %s -> %s', wopiSrc, redirectedWopiSrc);
+        wopiSrc = redirectedWopiSrc;
+        userAuth.wopiSrc = wopiSrc;
       }
       const fileType = getFileTypeByInfo(fileInfo);
       if (!shutdownFlag) {
@@ -743,14 +836,14 @@ function getEditorHtml(req, res) {
       }
 
       const canEdit = fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview;
-      if (!canEdit) {
+      if (!canEdit && userAuth.mode !== 'view') {
         ctx.logger.warn('wopiEditor: edit mode is not allowed, fallback to view mode');
         userAuth.mode = 'view';
         userAuth.forcedViewMode = true;
       }
 
       // Prepare document for editing (docId, cache validation)
-      const prepareResult = yield prepareDocumentForEditing(ctx, wopiSrc, fileInfo, userAuth, fileType, utils.getBaseUrlByRequest(ctx, req), params);
+      const prepareResult = yield prepareDocumentForEditing(ctx, fileInfo, userAuth, fileType, utils.getBaseUrlByRequest(ctx, req), params);
       if (!prepareResult) {
         params.fileInfo = {};
         return;
@@ -763,9 +856,7 @@ function getEditorHtml(req, res) {
         delete params.fileInfo[item];
       });
 
-      const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-      const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-      params.token = jwt.sign(params, utils.getJwtHsKey(secret), options);
+      params.token = yield jwtService.signToken(ctx, constants.JWT_PURPOSE_BROWSER_OPEN, params, tenTokenOutboxAlgorithm, tenTokenOutboxExpires);
     } catch (err) {
       ctx.logger.error('wopiEditor error: %s', err.stack);
       params.fileInfo = {};
@@ -781,6 +872,12 @@ function getEditorHtml(req, res) {
     }
   });
 }
+// sign with a key derived from the purpose so this token cannot pass as an inbox token
+async function signConvertStatusToken(ctx, docId, wopiSrc) {
+  const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
+  const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
+  return await jwtService.signToken(ctx, constants.JWT_PURPOSE_WOPI_CONVERT, {docId, wopiSrc}, tenTokenOutboxAlgorithm, tenTokenOutboxExpires);
+}
 function getConverterHtml(req, res) {
   return co(function* () {
     const params = {statusHandler: undefined};
@@ -788,11 +885,9 @@ function getConverterHtml(req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
-      const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
       const tenWopiHost = ctx.getCfg('wopi.host', cfgWopiHost);
 
-      const wopiSrc = req.query['wopisrc'];
+      let wopiSrc = req.query['wopisrc'];
       const fileId = wopiSrc.substring(wopiSrc.lastIndexOf('/') + 1);
       ctx.setDocId(fileId);
       ctx.logger.info('convert-and-edit start');
@@ -804,9 +899,9 @@ function getConverterHtml(req, res) {
 
       if (!(wopiSrc && access_token && access_token_ttl && ext && targetext)) {
         ctx.logger.debug(
-          'convert-and-edit invalid params: WOPISrc=%s; access_token=%s; access_token_ttl=%s; ext=%s; targetext=%s',
+          'convert-and-edit invalid params: WOPISrc=%s; hasAccessToken=%s; access_token_ttl=%s; ext=%s; targetext=%s',
           wopiSrc,
-          access_token,
+          !!access_token,
           access_token_ttl,
           ext,
           targetext
@@ -814,10 +909,11 @@ function getConverterHtml(req, res) {
         return;
       }
 
-      const fileInfo = yield checkFileInfo(ctx, wopiSrc, access_token);
+      const {fileInfo, redirectedWopiSrc} = yield checkFileInfo(ctx, wopiSrc, access_token);
       if (!fileInfo || fileInfo.error) {
         return;
       }
+      if (redirectedWopiSrc) wopiSrc = redirectedWopiSrc;
 
       const wopiParams = getWopiParams(undefined, fileInfo, wopiSrc, access_token, access_token_ttl);
 
@@ -827,10 +923,7 @@ function getConverterHtml(req, res) {
         params.statusHandler = `${baseUrl}/hosting/wopi/convert-and-edit-handler`;
         params.statusHandler += `?${constants.SHARD_KEY_WOPI_NAME}=${encodeURIComponent(wopiSrc)}&access_token=${encodeURIComponent(access_token)}`;
         params.statusHandler += `&targetext=${encodeURIComponent(targetext)}&docId=${encodeURIComponent(docId)}`;
-        const tokenData = {docId};
-        const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-        const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-        const token = jwt.sign(tokenData, utils.getJwtHsKey(secret), options);
+        const token = yield signConvertStatusToken(ctx, docId, wopiSrc);
 
         params.statusHandler += `&token=${encodeURIComponent(token)}`;
       }
@@ -848,7 +941,7 @@ function getConverterHtml(req, res) {
     }
   });
 }
-function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave, optContentTypeExt) {
+function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, isModifiedByUser, isAutosave, isExitSave, optOptions) {
   return co(function* () {
     let postRes = null;
     try {
@@ -861,11 +954,6 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
       const fileInfo = wopiParams.commonInfo.fileInfo;
       const userAuth = wopiParams.userAuth;
       const uri = `${userAuth.wopiSrc}/contents?access_token=${encodeURIComponent(userAuth.access_token)}`;
-      const filterStatus = yield checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return postRes;
-      }
-
       //collabora nexcloud connector sets only UserCanWrite=true
       const canEdit = fileInfo.UserCanOnlyComment || fileInfo.UserCanWrite || fileInfo.UserCanReview;
       if (fileInfo && (fileInfo.SupportsUpdate || canEdit)) {
@@ -880,12 +968,26 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
           //collabora nexcloud connector
           headers['X-LOOL-WOPI-Timestamp'] = wopiParams.LastModifiedTime;
         }
-        headers['Content-Type'] = mime.getType(optContentTypeExt || getFileTypeByInfo(fileInfo));
+        let contentTypeExt;
+        if (typeof optOptions === 'object' && optOptions !== null) {
+          contentTypeExt = optOptions.contentTypeExt;
+        } else if (typeof optOptions === 'string') {
+          contentTypeExt = optOptions;
+        }
+        headers['Content-Type'] = mime.getType(contentTypeExt || getFileTypeByInfo(fileInfo));
 
         ctx.logger.debug('wopi PutFile request uri=%s headers=%j', uri, headers);
-        //isInJwtToken is true because it passed checkIpFilter for wopi
-        const isInJwtToken = true;
-        postRes = yield utils.postRequestPromise(ctx, uri, data, dataStream, dataSize, tenCallbackRequestTimeout, undefined, isInJwtToken, headers);
+        if (typeof dataStream === 'function') {
+          const streamObj = yield dataStream();
+          dataStream = streamObj.readStream;
+        }
+        postRes = yield wopiEgress.post(ctx, uri, {
+          timeout: tenCallbackRequestTimeout,
+          headers,
+          data,
+          dataStream,
+          dataSize
+        });
         ctx.logger.debug('wopi PutFile response headers=%j', postRes.response.headers);
         ctx.logger.debug('wopi PutFile response body:%s', postRes.body);
       } else {
@@ -893,7 +995,20 @@ function putFile(ctx, wopiParams, data, dataStream, dataSize, userLastChangeId, 
       }
     } catch (err) {
       const errorMsg = getWopiErrorMessage(err.statusCode);
-      ctx.logger.error('wopi PutFile error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
+      const returnErrorDetails =
+        typeof optOptions === 'object' && optOptions !== null ? optOptions.returnErrorDetails : typeof optOptions === 'boolean' && optOptions;
+      if (returnErrorDetails) {
+        ctx.logger.debug('wopi PutFile error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
+        postRes = {putFileError: true, statusCode: err.statusCode || 0, responseHeaders: err.response?.headers};
+      } else {
+        ctx.logger.error(
+          'wopi PutFile error status=%d (%s) wopiHeaders=%j:%s',
+          err.statusCode,
+          errorMsg,
+          getWopiErrorHeaders(err.response?.headers),
+          err.stack
+        );
+      }
     } finally {
       ctx.logger.info('wopi PutFile end');
     }
@@ -908,11 +1023,6 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       const tenCallbackRequestTimeout = ctx.getCfg('services.CoAuthoring.server.callbackRequestTimeout', cfgCallbackRequestTimeout);
 
       const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      const filterStatus = yield checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return res;
-      }
-
       const headers = {'X-WOPI-Override': 'PUT_RELATIVE', 'X-WOPI-SuggestedTarget': utf7.encode(suggestedTarget || suggestedExt)};
       if (isFileConversion) {
         headers['X-WOPI-FileConversion'] = isFileConversion;
@@ -921,19 +1031,17 @@ function putRelativeFile(ctx, wopiSrc, access_token, data, dataStream, dataSize,
       headers['Content-Type'] = mime.getType(suggestedExt);
 
       ctx.logger.debug('wopi putRelativeFile request uri=%s headers=%j', uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = yield utils.postRequestPromise(
-        ctx,
-        uri,
+      if (typeof dataStream === 'function') {
+        const streamObj = yield dataStream();
+        dataStream = streamObj.readStream;
+      }
+      const postRes = yield wopiEgress.post(ctx, uri, {
+        timeout: tenCallbackRequestTimeout,
+        headers,
         data,
         dataStream,
-        dataSize,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+        dataSize
+      });
       ctx.logger.debug('wopi putRelativeFile response headers=%j', postRes.response.headers);
       ctx.logger.debug('wopi putRelativeFile response body:%s', postRes.body);
       res = JSON.parse(postRes.body);
@@ -965,11 +1073,6 @@ async function renameFile(ctx, wopiParams, name) {
     const fileInfo = wopiParams.commonInfo.fileInfo;
     const userAuth = wopiParams.userAuth;
     const uri = `${userAuth.wopiSrc}?access_token=${encodeURIComponent(userAuth.access_token)}`;
-    const filterStatus = await checkIpFilter(ctx, uri);
-    if (0 !== filterStatus) {
-      return res;
-    }
-
     if (fileInfo && fileInfo.SupportsRename) {
       const fileNameMaxLength = fileInfo.FileNameMaxLength || 255;
       name = name.substring(0, fileNameMaxLength);
@@ -979,19 +1082,7 @@ async function renameFile(ctx, wopiParams, name) {
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, userAuth.access_token);
 
       ctx.logger.debug('wopi RenameFile request uri=%s headers=%j', uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = await utils.postRequestPromise(
-        ctx,
-        uri,
-        undefined,
-        undefined,
-        undefined,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+      const postRes = await wopiEgress.post(ctx, uri, {timeout: tenCallbackRequestTimeout, headers});
       ctx.logger.debug('wopi RenameFile response headers=%j body=%s', postRes.response.headers, postRes.body);
       if (postRes.body) {
         res = JSON.parse(postRes.body);
@@ -1022,20 +1113,19 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
     const tenTokenOutboxAlgorithm = ctx.getCfg('services.CoAuthoring.token.outbox.algorithm', cfgTokenOutboxAlgorithm);
     const tenTokenOutboxExpires = ctx.getCfg('services.CoAuthoring.token.outbox.expires', cfgTokenOutboxExpires);
 
-    const fileInfo = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
+    const {fileInfo, redirectedWopiSrc} = await checkFileInfo(ctx, userAuth.wopiSrc, userAuth.access_token);
     if (!fileInfo || fileInfo.error) {
       return;
     }
+    if (redirectedWopiSrc) userAuth.wopiSrc = redirectedWopiSrc;
     const fileType = getFileTypeByInfo(fileInfo);
 
     res = {userAuth, fileInfo, queryParams: undefined};
-    const prepareResult = await prepareDocumentForEditing(ctx, userAuth.wopiSrc, fileInfo, userAuth, fileType, baseUrl, res);
+    const prepareResult = await prepareDocumentForEditing(ctx, fileInfo, userAuth, fileType, baseUrl, res);
     if (!prepareResult) {
       return;
     }
-    const options = {algorithm: tenTokenOutboxAlgorithm, expiresIn: tenTokenOutboxExpires};
-    const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Browser);
-    res.token = jwt.sign(res, utils.getJwtHsKey(secret), options);
+    res.token = await jwtService.signToken(ctx, constants.JWT_PURPOSE_BROWSER_OPEN, res, tenTokenOutboxAlgorithm, tenTokenOutboxExpires);
   } catch (err) {
     res = undefined;
     ctx.logger.error('wopi error RefreshFile:%s', err.stack);
@@ -1056,40 +1146,29 @@ async function refreshFile(ctx, wopiParams, baseUrl) {
  *   - Error: {error: true, statusCode: 401|404|500}
  */
 async function checkFileInfo(ctx, wopiSrc, access_token, opt_sc) {
-  let result = null;
   try {
     ctx.logger.info('wopi checkFileInfo start');
     const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
-
     const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-    const filterStatus = await checkIpFilter(ctx, uri);
-    if (0 !== filterStatus) {
-      const errorMsg = getWopiErrorMessage(403);
-      ctx.logger.error('wopi checkFileInfo error status=%d (%s)', 403, errorMsg);
-      return {error: true, statusCode: 403};
-    }
-    const headers = {};
-    if (opt_sc) {
-      headers['X-WOPI-SessionContext'] = opt_sc;
-    }
+    const headers = opt_sc ? {'X-WOPI-SessionContext': opt_sc} : {};
     await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
-    ctx.logger.debug('wopi checkFileInfo request uri=%s headers=%j', uri, headers);
-    //isInJwtToken is true because it passed checkIpFilter for wopi
-    const isInJwtToken = true;
-    const getRes = await utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, undefined, undefined, isInJwtToken, headers);
-    ctx.logger.debug(`wopi checkFileInfo headers=%j body=%s`, getRes.response.headers, getRes.body);
-    result = JSON.parse(getRes.body);
+    ctx.logger.debug('wopi GET request uri=%s headers=%j', uri, headers);
+    const getRes = await wopiEgress.download(ctx, uri, {timeout: tenDownloadTimeout, headers, kind: 'checkFileInfo', access_token});
+    let redirectedWopiSrc;
+    if (getRes.wopiFinalUri !== uri) {
+      const rUrl = new URL(getRes.wopiFinalUri);
+      rUrl.search = '';
+      redirectedWopiSrc = rUrl.toString();
+      ctx.logger.info('wopi checkFileInfo redirect: %s -> %s', wopiSrc, redirectedWopiSrc);
+    }
+    ctx.logger.debug('wopi checkFileInfo headers=%j body=%s', getRes.response.headers, getRes.body);
+    return {fileInfo: JSON.parse(getRes.body), redirectedWopiSrc};
   } catch (err) {
-    const errorMsg = getWopiErrorMessage(err.statusCode);
-    ctx.logger.error('wopi checkFileInfo error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
-    result = {
-      error: true,
-      statusCode: err.statusCode
-    };
+    ctx.logger.error('wopi checkFileInfo error status=%d (%s):%s', err.statusCode, getWopiErrorMessage(err.statusCode), err.stack);
+    return {fileInfo: {error: true, statusCode: err.statusCode}};
   } finally {
     ctx.logger.info('wopi checkFileInfo end');
   }
-  return result;
 }
 async function lock(ctx, command, lockId, fileInfo, userAuth) {
   const res = {error: false, statusCode: undefined};
@@ -1105,29 +1184,10 @@ async function lock(ctx, command, lockId, fileInfo, userAuth) {
       const wopiSrc = userAuth.wopiSrc;
       const access_token = userAuth.access_token;
       const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      const filterStatus = await checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        res.error = true;
-        res.statusCode = 403;
-        return res;
-      }
-
       const headers = {'X-WOPI-Override': command, 'X-WOPI-Lock': lockId};
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi %s request uri=%s headers=%j', command, uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = await utils.postRequestPromise(
-        ctx,
-        uri,
-        undefined,
-        undefined,
-        undefined,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+      const postRes = await wopiEgress.post(ctx, uri, {timeout: tenCallbackRequestTimeout, headers});
       ctx.logger.debug('wopi %s response headers=%j', command, postRes.response.headers);
     } else {
       ctx.logger.info('wopi %s SupportsLocks = false', command);
@@ -1136,7 +1196,14 @@ async function lock(ctx, command, lockId, fileInfo, userAuth) {
     res.error = true;
     res.statusCode = err.statusCode;
     const errorMsg = getWopiErrorMessage(err.statusCode);
-    ctx.logger.error('wopi %s error status=%d (%s):%s', command, err.statusCode, errorMsg, err.stack);
+    ctx.logger.error(
+      'wopi %s error status=%d (%s) wopiHeaders=%j:%s',
+      command,
+      err.statusCode,
+      errorMsg,
+      getWopiErrorHeaders(err.response?.headers),
+      err.stack
+    );
   } finally {
     ctx.logger.info('wopi %s end', command);
   }
@@ -1157,27 +1224,10 @@ async function unlock(ctx, wopiParams) {
       const lockId = wopiParams.commonInfo.lockId;
       const access_token = wopiParams.userAuth.access_token;
       const uri = `${wopiSrc}?access_token=${encodeURIComponent(access_token)}`;
-      const filterStatus = await checkIpFilter(ctx, uri);
-      if (0 !== filterStatus) {
-        return;
-      }
-
       const headers = {'X-WOPI-Override': 'UNLOCK', 'X-WOPI-Lock': lockId};
       await wopiUtils.fillStandardHeaders(ctx, headers, uri, access_token);
       ctx.logger.debug('wopi Unlock request uri=%s headers=%j', uri, headers);
-      //isInJwtToken is true because it passed checkIpFilter for wopi
-      const isInJwtToken = true;
-      const postRes = await utils.postRequestPromise(
-        ctx,
-        uri,
-        undefined,
-        undefined,
-        undefined,
-        tenCallbackRequestTimeout,
-        undefined,
-        isInJwtToken,
-        headers
-      );
+      const postRes = await wopiEgress.post(ctx, uri, {timeout: tenCallbackRequestTimeout, headers});
       ctx.logger.debug('wopi Unlock response headers=%j', postRes.response.headers);
     } else {
       ctx.logger.info('wopi SupportsLocks = false');
@@ -1185,7 +1235,13 @@ async function unlock(ctx, wopiParams) {
     res = true;
   } catch (err) {
     const errorMsg = getWopiErrorMessage(err.statusCode);
-    ctx.logger.error('wopi Unlock error status=%d (%s):%s', err.statusCode, errorMsg, err.stack);
+    ctx.logger.error(
+      'wopi Unlock error status=%d (%s) wopiHeaders=%j:%s',
+      err.statusCode,
+      errorMsg,
+      getWopiErrorHeaders(err.response?.headers),
+      err.stack
+    );
   } finally {
     ctx.logger.info('wopi Unlock end');
   }
@@ -1204,16 +1260,6 @@ function numberToBase64(val) {
   return buffer.toString('base64');
 }
 
-function checkIpFilter(ctx, uri) {
-  return co(function* () {
-    const urlParsed = new URL(uri);
-    const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
-    if (0 !== filterStatus) {
-      ctx.logger.warn('wopi checkIpFilter error: url = %s', uri);
-    }
-    return filterStatus;
-  });
-}
 function getWopiParams(lockId, fileInfo, wopiSrc, access_token, access_token_ttl) {
   const commonInfo = {lockId, fileInfo};
   const userAuth = {
@@ -1271,12 +1317,14 @@ function dummyOk(req, res) {
   res.sendStatus(200);
 }
 
-exports.checkIpFilter = checkIpFilter;
+exports._checkFileInfoForTesting = checkFileInfo;
+exports._getNewFileTemplateMetaForTesting = getNewFileTemplateMeta;
 exports.discovery = discovery;
 exports.collaboraCapabilities = collaboraCapabilities;
 exports.parseWopiCallback = parseWopiCallback;
 exports.getEditorHtml = getEditorHtml;
 exports.getConverterHtml = getConverterHtml;
+exports.signConvertStatusToken = signConvertStatusToken;
 exports.putFile = putFile;
 exports.parsePutFileResponse = parsePutFileResponse;
 exports.putRelativeFile = putRelativeFile;
@@ -1292,3 +1340,5 @@ exports.setIsShutdown = setIsShutdown;
 exports.dummyCheckFileInfo = dummyCheckFileInfo;
 exports.dummyGetFile = dummyGetFile;
 exports.dummyOk = dummyOk;
+exports._createDocIdForTesting = createDocId;
+exports._getDocIdIdentityForTesting = getDocIdIdentity;

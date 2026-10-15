@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 const path = require('path');
 
 const platforms = {
@@ -43,12 +42,11 @@ const platforms = {
 const platform = platforms[process.platform];
 
 process.env.NODE_ENV = `development-${platform}`;
-// Use an absolute path so tests work regardless of which directory jest is
-// invoked from (e.g. repo root vs tests/).
-process.env.NODE_CONFIG_DIR = path.join(__dirname, '..', 'Common', 'config');
+// __dirname = server/tests/ - absolute path, independent of launch CWD
+process.env.NODE_CONFIG_DIR = path.resolve(__dirname, '../Common/config');
 
 if (platform === 'mac') {
-  process.env.DYLD_LIBRARY_PATH = '../FileConverter/bin/';
+  process.env.DYLD_LIBRARY_PATH = path.resolve(__dirname, '../FileConverter/bin');
 } else if (platform === 'linux') {
-  process.env.LD_LIBRARY_PATH = '../FileConverter/bin/';
+  process.env.LD_LIBRARY_PATH = path.resolve(__dirname, '../FileConverter/bin');
 }

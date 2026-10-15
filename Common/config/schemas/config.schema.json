@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "urn:onlyoffice:config:superset:1",
-  "title": "Config Patch Schema (Superset for Admin and Tenant)",
-  "description": "Superset schema with x-scope markers. Use at runtime to derive per-scope schemas.",
+  "title": "ONLYOFFICE Docs Configuration Schema",
+  "description": "Complete configuration schema with scope markers for validation and documentation.\n\nCustom annotation `x-tenantOverride` (boolean):\n- `true`  \u2014 setting this key in a per-tenant `config.json` is safe and either takes effect (supported) or is silently ignored without breaking anything (deprecated/unused).\n- `false` \u2014 setting this key per-tenant either has no effect (global-only), takes effect only under specific conditions (conditional), or causes a silent inconsistency with shared/global state (unsafe).\n\nThe annotation covers every leaf-key present in `default.json` plus the `persistentStorage` parent (annotated once, since its body inherits from `storage`).",
   "type": "object",
   "additionalProperties": false,
   "$defs": {
@@ -34,63 +34,1667 @@
     }
   },
   "properties": {
+    "statsd": {
+      "type": "object",
+      "description": "The StatsD metrics configuration for monitoring.",
+      "additionalProperties": false,
+      "properties": {
+        "useMetrics": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the StatsD metrics are enabled for **ONLYOFFICE Docs** or not.",
+          "x-tenantOverride": false
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "The StatsD server host (host name or IP address).",
+          "x-tenantOverride": false
+        },
+        "port": {
+          "type": "string",
+          "default": "8125",
+          "description": "The StatsD server port.",
+          "x-tenantOverride": false
+        },
+        "prefix": {
+          "type": "string",
+          "default": "ds.",
+          "description": "A string that will be added to the beginning of all the stats automatically. It helps to distinguish different applications using the same StatsD server.",
+          "x-tenantOverride": false
+        }
+      },
+      "x-section-intro": "These parameters configure the StatsD server properties, specifying an aggregator of metrics."
+    },
     "aiSettings": {
       "type": "object",
-      "description": "AI integration settings for document processing and AI-powered features",
+      "description": "The AI integration settings for document processing and AI-powered features.",
       "additionalProperties": false,
       "x-scope": ["admin", "tenant"],
       "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Whether AI features are enabled in the editors or not. When disabled, AI Tools is excluded from /plugins.json, its settings are not sent to the editors and /ai-proxy requests are rejected with HTTP 403.",
+          "default": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
+        },
         "version": {
           "type": "integer",
-          "description": "AI settings schema version",
+          "description": "The version of the AI SDK.",
           "minimum": 1,
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "timeout": {
           "type": "string",
-          "description": "Default timeout for AI API requests (e.g., '5m', '30s')",
-          "x-scope": ["admin", "tenant"]
+          "description": "An AI proxy timeout as a duration string.",
+          "default": "5m",
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
-        "proxy": {
-          "type": "string",
-          "description": "Proxy URL for AI API requests",
-          "x-scope": ["admin", "tenant"]
+        "allowBrowserProxy": {
+          "type": "boolean",
+          "description": "Whether /ai-proxy relays a request whose target matches no configured provider. When enabled, the request is forwarded as the client composed it, so the editors can reach a target configured in the browser, such as an MCP server or a web search service. The server adds no credentials of its own, the caller still needs a valid session token, only absolute http and https targets are accepted, and the request goes out through the usual externalRequest filtering. When disabled, a request with an unmatched target is answered with HTTP 403.",
+          "default": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "allowedCorsOrigins": {
           "type": "array",
-          "description": "Array of allowed CORS origins for AI API requests",
+          "description": "The external websites permitted to make cross-origin requests to the server.",
           "x-scope": ["admin", "tenant"],
           "items": {
             "type": "string",
-            "description": "Allowed origin URL"
-          }
+            "description": "An allowed origin URL."
+          },
+          "default": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"],
+          "x-tenantOverride": true
         },
         "actions": {
           "type": "object",
-          "description": "Available AI actions/features configuration",
+          "description": "AI actions performed, e.g., Chat, Summarization, Translation, TextAnalyze, ImageGeneration, OCR, Vision.",
           "additionalProperties": true,
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "providers": {
           "type": "object",
-          "description": "AI service providers configuration",
+          "description": "AI providers, e.g., OpenAI, Google Gemini, Anthropic, etc.",
           "additionalProperties": true,
-          "x-scope": ["admin", "tenant"]
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
         },
         "customProviders": {
           "type": "object",
-          "description": "Custom AI service providers configuration",
+          "description": "The custom AI service providers configuration.",
           "additionalProperties": true,
           "x-scope": ["admin", "tenant"]
         },
         "models": {
           "type": "array",
-          "description": "Active AI models configuration",
+          "description": "AI models, e.g., gemini-1.5-pro-latest, llama3.2:latest, etc.",
           "x-scope": ["admin", "tenant"],
           "items": {
             "type": "object",
             "additionalProperties": true
+          },
+          "x-tenantOverride": true
+        },
+        "pluginSettings": {
+          "type": "object",
+          "description": "Opaque universal AI Tools settings blob (profiles, assignments, mcpServers, webSearch, etc.) owned by AI Tools and round-tripped verbatim.",
+          "additionalProperties": true,
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
+        }
+      },
+      "x-section-intro": "These parameters configure the AI Tools properties."
+    },
+    "log": {
+      "type": "object",
+      "description": "The logging configuration.",
+      "x-scope": "admin",
+      "additionalProperties": true,
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "A path to the log file.",
+          "x-scope": "admin",
+          "default": "",
+          "x-tenantOverride": false
+        },
+        "options": {
+          "type": "object",
+          "description": "The log options.",
+          "x-scope": "admin",
+          "properties": {
+            "replaceConsole": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether the log information is printed to the console or not.",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            },
+            "categories": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "level": {
+                      "type": "string",
+                      "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
+                      "description": "The logging level for the application."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "replaceConsole": true
+          },
+          "additionalProperties": true
+        }
+      },
+      "x-section-intro": "These parameters configure the logger properties."
+    },
+    "runtimeConfig": {
+      "type": "object",
+      "description": "The runtime configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "A path to the `runtime.json` dynamic config file. By default, the `/var/www/onlyoffice/Data/runtime.json` path is used.",
+          "default": "",
+          "x-tenantOverride": false
+        },
+        "cache": {
+          "type": "object",
+          "description": "The `runtime.json` cache options.",
+          "properties": {
+            "stdTTL": {
+              "type": "integer",
+              "default": 300,
+              "description": "The TTL (time to live) for every generated cache element (measured in seconds).",
+              "x-tenantOverride": false
+            },
+            "checkperiod": {
+              "type": "integer",
+              "default": 60,
+              "description": "The period used for the automatic delete check interval (measured in seconds).",
+              "x-tenantOverride": false
+            },
+            "useClones": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether the cached variables will be cloned or not. If `true`, a copy of the cached variable will be created. If `false`, only the reference will be saved.",
+              "x-tenantOverride": false
+            }
+          },
+          "default": {
+            "stdTTL": 300,
+            "checkperiod": 60,
+            "useClones": false
           }
+        }
+      },
+      "x-section-intro": "These parameters configure the `runtime.json` file and its cache. The server monitors file changes and reloads the cache. An expired cache entry is refreshed on the next read. Settings read only at startup still require a restart."
+    },
+    "queue": {
+      "type": "object",
+      "description": "The message queue configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["rabbitmq", "activemq"],
+          "default": "rabbitmq",
+          "description": "The message broker type.",
+          "x-tenantOverride": false
+        },
+        "visibilityTimeout": {
+          "type": "integer",
+          "default": 300,
+          "description": "The queue task visibility timeout (measured in seconds). Together with `queue.retentionPeriod`, it contributes to the conversion timeout.",
+          "x-tenantOverride": false
+        },
+        "retentionPeriod": {
+          "type": "integer",
+          "default": 900,
+          "description": "The [TTL](https://www.rabbitmq.com/ttl.html) (time to live) of all the messages in a queue (measured in seconds).",
+          "x-tenantOverride": true
+        }
+      },
+      "x-section-intro": "These parameters configure a queue of messages received from the message-broker."
+    },
+    "email": {
+      "type": "object",
+      "description": "The email (nodemailer) configuration for notifications.",
+      "x-scope": ["admin", "tenant"],
+      "additionalProperties": false,
+      "properties": {
+        "smtpServerConfiguration": {
+          "type": "object",
+          "description": "The [basic settings](https://nodemailer.com/smtp/) for connecting to the SMTP server.",
+          "x-scope": "admin",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "localhost",
+              "description": "The host name or IP address of the SMTP server.",
+              "x-scope": "admin",
+              "x-tenantOverride": true
+            },
+            "port": {
+              "type": "integer",
+              "default": 587,
+              "description": "The SMTP server port.",
+              "x-scope": "admin",
+              "minimum": 1,
+              "maximum": 65535,
+              "x-tenantOverride": false
+            },
+            "auth": {
+              "type": "object",
+              "description": "The authentication data.",
+              "x-scope": "admin",
+              "properties": {
+                "user": {
+                  "type": "string",
+                  "description": "The authentication username.",
+                  "x-scope": "admin",
+                  "default": "",
+                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+                  "x-tenantOverride": true
+                },
+                "pass": {
+                  "type": "string",
+                  "description": "The authentication password.",
+                  "x-warning": true,
+                  "x-scope": "admin",
+                  "default": "",
+                  "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+                  "x-tenantOverride": false
+                }
+              },
+              "default": {
+                "user": "",
+                "pass": ""
+              },
+              "additionalProperties": false
+            }
+          },
+          "default": {
+            "host": "localhost",
+            "port": 587,
+            "auth": {
+              "user": "",
+              "pass": ""
+            }
+          },
+          "additionalProperties": false
+        },
+        "connectionConfiguration": {
+          "type": "object",
+          "description": "The [technical options](https://nodemailer.com/smtp/#connection-options) for connecting to the SMTP server.",
+          "x-scope": "admin",
+          "properties": {
+            "disableFileAccess": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether to allow using files as content. If this parameter is set to **true**, then JSON data from an untrusted source cannot be used as the email.\nIf an attachment or message node tries to fetch something from a file, the sending returns an error.",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            },
+            "disableUrlAccess": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether to allow using URLs as content.",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            }
+          },
+          "default": {
+            "disableFileAccess": false,
+            "disableUrlAccess": false
+          }
+        },
+        "contactDefaults": {
+          "type": "object",
+          "description": "The [email message settings](https://nodemailer.com/message/#common-fields).",
+          "x-scope": "admin",
+          "properties": {
+            "from": {
+              "type": "string",
+              "format": "email",
+              "default": "from@example.com",
+              "description": "The email address of the sender. All email addresses can be plain *\"sender@server.com\"*\nor with formatted name *'\"Sender Name\" sender@server.com'*.",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            },
+            "to": {
+              "type": "string",
+              "format": "email",
+              "default": "to@example.com",
+              "description": "The comma separated list or an array of recipients email addresses that will appear on the *To:* field.",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            }
+          },
+          "default": {
+            "from": "from@example.com",
+            "to": "to@example.com"
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-section-intro": "These parameters configure the settings of an external mail server, which is used to send [notifications](./notification.md). To connect to the mail server, use the [nodemailer](https://nodemailer.com/about/) library. Many config settings are passed directly to this library."
+    },
+    "notification": {
+      "type": "object",
+      "description": "The notification system configuration for license expiration and limits warnings.",
+      "x-scope": ["admin", "tenant"],
+      "x-section-intro": "These parameters configure the notification settings.\n\nNotifications with the following event types and content are sent:\n\n- 70% of the [connection quota](./license.md#licensewarning_limit_percents) (quota of unique users) is exceeded.\n\n  License connection limit warning: *\"Attention! You have reached 70% of the connections limit set by your license.\"*\n\n- The connection quota (quota of unique users) is reached.\n\n  License connection limit warning: *\"Attention! You have reached 100% of the connection limit set by your license.\"*\n\n- 30 days before the [license expires](./license.md#licensewarning_license_expiration).\n\n  License expiration warning: *\"Attention! Your license is about to expire on September 8, 2024. Upon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.\"*\n\n- The license has expired.\n\n  License connection limit warning: *\"Attention! Your license expired on September 8, 2024. You are no longer entitled to receive personal technical support and install new Docs versions released after this date. Please contact sales@onlyoffice.com to discuss license renewal.\"*",
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "type": "object",
+          "description": "The rules of notification settings for four notification types:\n*licenseExpirationWarning*, *licenseExpirationError*, *licenseLimitEdit*, *licenseLimitLiveViewer*.",
+          "x-scope": ["admin", "tenant"],
+          "properties": {
+            "licenseExpirationWarning": {
+              "type": "object",
+              "description": "The rules for the *licenseExpirationWarning* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Whether the *licenseExpirationWarning* notification is enabled. Each notification type must be enabled separately.",
+                  "x-scope": ["admin", "tenant"],
+                  "x-tenantOverride": true
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["email"]
+                  },
+                  "description": "The way of sending the *licenseExpirationWarning* notification. Currently, only the *email* type is available.",
+                  "x-scope": "admin",
+                  "default": ["email"],
+                  "x-tenantOverride": true
+                },
+                "template": {
+                  "type": "object",
+                  "description": "A template of the *licenseExpirationWarning* notification title and body.",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "description": "A template of the *licenseExpirationWarning* notification title.",
+                      "x-scope": "admin",
+                      "default": "%s Docs license expiration warning",
+                      "x-tenantOverride": true
+                    },
+                    "body": {
+                      "type": "string",
+                      "description": "A template of the *licenseExpirationWarning* notification body.",
+                      "x-scope": "admin",
+                      "default": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date.",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "default": {
+                    "title": "%s Docs license expiration warning",
+                    "body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "description": "The *licenseExpirationWarning* notification sending policy.",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "description": "The time when the *licenseExpirationWarning* notification will be sent (not more often than the specified period).",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "default": "1d",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "default": {
+                    "repeatInterval": "1d"
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license expiration warning",
+                  "body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+                },
+                "policies": {
+                  "repeatInterval": "1d"
+                }
+              },
+              "additionalProperties": false
+            },
+            "licenseExpirationError": {
+              "type": "object",
+              "description": "The rules for the *licenseExpirationError* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Whether the *licenseExpirationError* notification is enabled. Each notification type must be enabled separately.",
+                  "x-tenantOverride": true
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-scope": "admin",
+                  "description": "The way of sending the *licenseExpirationError* notification. Currently, only the *email* type is available.",
+                  "default": ["email"],
+                  "x-tenantOverride": true
+                },
+                "template": {
+                  "type": "object",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "A template of the *licenseExpirationError* notification title.",
+                      "default": "%s Docs license expiration warning",
+                      "x-tenantOverride": true
+                    },
+                    "body": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "A template of the *licenseExpirationError* notification body.",
+                      "default": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal.",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "description": "A template of the *licenseExpirationError* notification title and body.",
+                  "default": {
+                    "title": "%s Docs license expiration warning",
+                    "body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "The time when the *licenseExpirationError* notification will be sent (not more often than the specified period).",
+                      "default": "1d",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "description": "The *licenseExpirationError* notification sending policy.",
+                  "default": {
+                    "repeatInterval": "1d"
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license expiration warning",
+                  "body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+                },
+                "policies": {
+                  "repeatInterval": "1d"
+                }
+              },
+              "additionalProperties": false
+            },
+            "licenseLimitEdit": {
+              "type": "object",
+              "description": "The rules for the *licenseLimitEdit* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Whether the *licenseLimitEdit* notification is enabled. Each notification type must be enabled separately.",
+                  "x-tenantOverride": true
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-scope": "admin",
+                  "description": "The way of sending the *licenseLimitEdit* notification. Currently, only the *email* type is available.",
+                  "default": ["email"],
+                  "x-tenantOverride": true
+                },
+                "template": {
+                  "type": "object",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "A template of the *licenseLimitEdit* notification title.",
+                      "default": "%s Docs license %s limit warning",
+                      "x-tenantOverride": true
+                    },
+                    "body": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "A template of the *licenseLimitEdit* notification body.",
+                      "default": "Attention! You have reached %s%% of the %s limit set by your license.",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "description": "A template of the *licenseLimitEdit* notification title and body.",
+                  "default": {
+                    "title": "%s Docs license %s limit warning",
+                    "body": "Attention! You have reached %s%% of the %s limit set by your license."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "The time when the *licenseLimitEdit* notification will be sent (not more often than the specified period).",
+                      "default": "1h",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "description": "The *licenseLimitEdit* notification sending policy.",
+                  "default": {
+                    "repeatInterval": "1h"
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license %s limit warning",
+                  "body": "Attention! You have reached %s%% of the %s limit set by your license."
+                },
+                "policies": {
+                  "repeatInterval": "1h"
+                }
+              },
+              "additionalProperties": false
+            },
+            "licenseLimitLiveViewer": {
+              "type": "object",
+              "description": "The rules for the *licenseLimitLiveViewer* notification settings.",
+              "x-scope": ["admin", "tenant"],
+              "properties": {
+                "enable": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-scope": ["admin", "tenant"],
+                  "description": "Whether the *licenseLimitLiveViewer* notification is enabled. Each notification type must be enabled separately.",
+                  "x-tenantOverride": true
+                },
+                "transportType": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "x-scope": "admin",
+                  "description": "The way of sending the *licenseLimitLiveViewer* notification. Currently, only the *email* type is available.",
+                  "default": ["email"],
+                  "x-tenantOverride": true
+                },
+                "template": {
+                  "type": "object",
+                  "x-scope": "admin",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "A template of the *licenseLimitLiveViewer* notification title.",
+                      "default": "%s Docs license %s limit warning",
+                      "x-tenantOverride": true
+                    },
+                    "body": {
+                      "type": "string",
+                      "x-scope": "admin",
+                      "description": "A template of the *licenseLimitLiveViewer* notification body.",
+                      "default": "Attention! You have reached %s%% of the live viewer %s limit set by your license.",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "description": "A template of the *licenseLimitLiveViewer* notification title and body.",
+                  "default": {
+                    "title": "%s Docs license %s limit warning",
+                    "body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+                  }
+                },
+                "policies": {
+                  "type": "object",
+                  "x-scope": ["admin", "tenant"],
+                  "properties": {
+                    "repeatInterval": {
+                      "type": "string",
+                      "x-scope": ["admin", "tenant"],
+                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+                      "description": "The time when the *licenseLimitLiveViewer* notification will be sent (not more often than the specified period).",
+                      "default": "1h",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "description": "The *licenseLimitLiveViewer* notification sending policy.",
+                  "default": {
+                    "repeatInterval": "1h"
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "default": {
+                "enable": false,
+                "transportType": ["email"],
+                "template": {
+                  "title": "%s Docs license %s limit warning",
+                  "body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+                },
+                "policies": {
+                  "repeatInterval": "1h"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "default": {
+            "licenseExpirationWarning": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license expiration warning",
+                "body": "Attention! Your license is about to expire on %s.\nUpon reaching this date, you will no longer be entitled to receive personal technical support and install new Docs versions released after this date."
+              },
+              "policies": {
+                "repeatInterval": "1d"
+              }
+            },
+            "licenseExpirationError": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license expiration warning",
+                "body": "Attention! Your license expired on %s.\nYou are no longer entitled to receive personal technical support and install new Docs versions released after this date.\nPlease contact sales@onlyoffice.com to discuss license renewal."
+              },
+              "policies": {
+                "repeatInterval": "1d"
+              }
+            },
+            "licenseLimitEdit": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license %s limit warning",
+                "body": "Attention! You have reached %s%% of the %s limit set by your license."
+              },
+              "policies": {
+                "repeatInterval": "1h"
+              }
+            },
+            "licenseLimitLiveViewer": {
+              "enable": false,
+              "transportType": ["email"],
+              "template": {
+                "title": "%s Docs license %s limit warning",
+                "body": "Attention! You have reached %s%% of the live viewer %s limit set by your license."
+              },
+              "policies": {
+                "repeatInterval": "1h"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "description": "The storage backend configuration (file system, S3, Azure Blob Storage).",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["storage-fs", "storage-s3", "storage-azure"],
+          "default": "storage-fs",
+          "description": "The document storage service name. E.g., the \"storage-s3\" value allows connecting Amazon S3 bucket as a cache. The \"storage-az\" value allows connecting MS Azure Blob Storage as a cache.",
+          "x-tenantOverride": false
+        },
+        "fs": {
+          "type": "object",
+          "description": "A fileSystem object parameters.",
+          "properties": {
+            "folderPath": {
+              "type": "string",
+              "description": "A path to the `App_Data` folder where all files are stored.",
+              "default": "",
+              "x-tenantOverride": true
+            },
+            "urlExpires": {
+              "type": "integer",
+              "default": 900,
+              "description": "The time when the temporary URL to the fileSystem object expires (measured in seconds).",
+              "x-tenantOverride": true
+            },
+            "secretString": {
+              "type": "string",
+              "default": "verysecretstring",
+              "description": "The secret string which is used to sign the URL.",
+              "x-warning": true,
+              "x-tenantOverride": true
+            }
+          },
+          "default": {
+            "folderPath": "",
+            "urlExpires": 900,
+            "secretString": "verysecretstring"
+          }
+        },
+        "region": {
+          "type": "string",
+          "default": "",
+          "description": "An AWS region where your Amazon bucket resides.",
+          "x-tenantOverride": true
+        },
+        "endpoint": {
+          "type": "string",
+          "default": "http://localhost/s3",
+          "description": "The endpoint of S3 AWS document storage or MS Azure Blob Storage.",
+          "x-tenantOverride": true
+        },
+        "bucketName": {
+          "type": "string",
+          "default": "cache",
+          "description": "A unique name of S3 AWS document storage or MS Azure Blob Storage.",
+          "x-tenantOverride": true
+        },
+        "storageFolderName": {
+          "type": "string",
+          "default": "files",
+          "description": "The S3 AWS document storage folder name where all the files are stored.",
+          "x-tenantOverride": false
+        },
+        "cacheFolderName": {
+          "type": "string",
+          "default": "data",
+          "description": "The cache folder name for working in the multi-tenant mode.",
+          "x-tenantOverride": false
+        },
+        "commandOptions": {
+          "type": "object",
+          "description": "The parameters that allow customizing commands to a storage, for example, enabling AWS KMS.",
+          "properties": {
+            "s3": {
+              "type": "object",
+              "description": "The parameters that allow customizing commands to S3 AWS document storage.",
+              "properties": {
+                "putObject": {
+                  "type": "object",
+                  "description": "The parameters of the putObject command type used to upload an object to a specified S3 bucket.",
+                  "default": {},
+                  "properties": {
+                    "BucketKeyEnabled": {
+                      "type": "boolean",
+                      "description": "This is an optional setting. Optimizes the cost per request by reducing calls to the KMS API."
+                    },
+                    "ServerSideEncryption": {
+                      "type": "string",
+                      "description": "The encryption type for the newly uploaded object. The available values are \"aws:kms\" or \"AES256\"."
+                    },
+                    "SSEKMSKeyId": {
+                      "type": "string",
+                      "description": "The identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it's uploaded."
+                    }
+                  },
+                  "x-tenantOverride": true
+                },
+                "getObject": {
+                  "type": "object",
+                  "description": "The parameters of the getObject command type used to retrieve an object from a specified S3 bucket.",
+                  "default": {},
+                  "x-tenantOverride": true
+                },
+                "copyObject": {
+                  "type": "object",
+                  "description": "The parameters of the copyObject command type used to create a copy of an object stored in a specified S3 bucket.",
+                  "properties": {
+                    "MetadataDirective": {
+                      "type": "string",
+                      "default": "COPY",
+                      "description": "How Amazon S3 handles the metadata of the destination object during a copy operation. If the value is set to \"COPY\", the metadata from the source object is copied to the destination object. If the value is set to \"REPLACE\", the metadata of the destination object is replaced by the metadata provided in the copyObject request and the metadata from the source object is not copied.",
+                      "x-tenantOverride": true
+                    },
+                    "BucketKeyEnabled": {
+                      "type": "boolean",
+                      "description": "This is an optional setting. Optimizes the cost per request by reducing calls to the KMS API."
+                    },
+                    "ServerSideEncryption": {
+                      "type": "string",
+                      "description": "The encryption type for the newly copied object. The available values are \"aws:kms\" or \"AES256\"."
+                    },
+                    "SSEKMSKeyId": {
+                      "type": "string",
+                      "description": "The identifier (ARN or key) of the Customer-Managed Key in AWS KMS that is used to encrypt the object after it's copied."
+                    }
+                  },
+                  "default": {
+                    "MetadataDirective": "COPY"
+                  }
+                },
+                "listObjects": {
+                  "type": "object",
+                  "description": "The parameters of the listObjects command type used to retrieve a list of objects within a specified S3 bucket.",
+                  "properties": {
+                    "MaxKeys": {
+                      "type": "integer",
+                      "default": 1000,
+                      "description": "The maximum number of objects that are returned in a response.",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "default": {
+                    "MaxKeys": 1000
+                  }
+                },
+                "deleteObject": {
+                  "type": "object",
+                  "description": "The parameters of the deleteObject command type used to remove an object from a specified S3 bucket.",
+                  "default": {},
+                  "x-tenantOverride": true
+                }
+              },
+              "default": {
+                "putObject": {},
+                "getObject": {},
+                "copyObject": {
+                  "MetadataDirective": "COPY"
+                },
+                "listObjects": {
+                  "MaxKeys": 1000
+                },
+                "deleteObject": {}
+              }
+            },
+            "az": {
+              "type": "object",
+              "description": "The parameters that allow customizing commands to MS Azure Blob Storage.",
+              "properties": {
+                "uploadData": {
+                  "type": "object",
+                  "description": "The parameters of the uploadData command type used to upload data to MS Azure Blob Storage.",
+                  "default": {},
+                  "properties": {
+                    "encryptionScope": {
+                      "type": "string",
+                      "description": "The name of the encryption scope used to encrypt an uploaded blob."
+                    }
+                  },
+                  "x-tenantOverride": true
+                },
+                "uploadStream": {
+                  "type": "object",
+                  "description": "The parameters of the uploadStream command type used to upload data from a stream to MS Azure Blob Storage.",
+                  "default": {},
+                  "properties": {
+                    "encryptionScope": {
+                      "type": "string",
+                      "description": "The name of the encryption scope used to encrypt a blob uploaded from a sream."
+                    }
+                  },
+                  "x-tenantOverride": true
+                },
+                "download": {
+                  "type": "object",
+                  "description": "The parameters of the download command type used to download data from MS Azure Blob Storage.",
+                  "default": {},
+                  "x-tenantOverride": true
+                },
+                "syncCopyFromURL": {
+                  "type": "object",
+                  "description": "The parameters of the syncCopyFromURL command type used to copy a blob from a source URL to a destination blob.",
+                  "default": {},
+                  "properties": {
+                    "encryptionScope": {
+                      "type": "string",
+                      "description": "The name of the encryption scope used to encrypt a copied blob."
+                    }
+                  },
+                  "x-tenantOverride": true
+                },
+                "listBlobsFlat": {
+                  "type": "object",
+                  "properties": {
+                    "maxPageSize": {
+                      "type": "integer",
+                      "default": 1000,
+                      "description": "The maximum number of blobs to return.",
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "description": "The parameters of the listBlobsFlat command type used to retrieve a list of all blobs in a container.",
+                  "default": {
+                    "maxPageSize": 1000
+                  }
+                },
+                "deleteBlob": {
+                  "type": "object",
+                  "description": "The parameters of the deleteBlob command type used to remove a blob.",
+                  "default": {},
+                  "x-tenantOverride": true
+                }
+              },
+              "default": {
+                "uploadData": {},
+                "uploadStream": {},
+                "download": {},
+                "syncCopyFromURL": {},
+                "listBlobsFlat": {
+                  "maxPageSize": 1000
+                },
+                "deleteBlob": {}
+              }
+            }
+          },
+          "default": {
+            "s3": {
+              "putObject": {},
+              "getObject": {},
+              "copyObject": {
+                "MetadataDirective": "COPY"
+              },
+              "listObjects": {
+                "MaxKeys": 1000
+              },
+              "deleteObject": {}
+            },
+            "az": {
+              "uploadData": {},
+              "uploadStream": {},
+              "download": {},
+              "syncCopyFromURL": {},
+              "listBlobsFlat": {
+                "maxPageSize": 1000
+              },
+              "deleteBlob": {}
+            }
+          }
+        },
+        "urlExpires": {
+          "type": "integer",
+          "default": 604800,
+          "description": "Unused by the current storage backends. Configure `storage.fs.urlExpires` instead, in seconds.",
+          "x-tenantOverride": true
+        },
+        "accessKeyId": {
+          "type": "string",
+          "default": "",
+          "description": "A key ID to access the S3 AWS document storage or MS Azure Blob Storage.",
+          "x-tenantOverride": true
+        },
+        "secretAccessKey": {
+          "type": "string",
+          "default": "",
+          "writeOnly": true,
+          "description": "A secret key to access the S3 AWS document storage or MS Azure Blob Storage.",
+          "x-warning": true,
+          "x-tenantOverride": true
+        },
+        "sslEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether SSL of the S3 AWS document storage is enabled or not.",
+          "x-tenantOverride": true
+        },
+        "s3ForcePathStyle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the requests to the S3 AWS document storage always use path style addressing.",
+          "x-tenantOverride": true
+        },
+        "externalHost": {
+          "type": "string",
+          "default": "",
+          "description": "An external host which is used instead of the host specified in the request.",
+          "x-tenantOverride": true
+        },
+        "useDirectStorageUrls": {
+          "type": "boolean",
+          "default": false,
+          "description": "The issuance of links to an external storage: direct links or links that are proxied through the Document Server. Setting this parameter to `true` enables direct links, while the `false` value allows using internal links (the server proxies requests to the storage).",
+          "x-tenantOverride": false
+        }
+      },
+      "x-section-intro": "These parameters configure the document storage service configuration."
+    },
+    "persistentStorage": {
+      "type": "object",
+      "description": "Secondary storage configuration for persistent data (forgotten files, errored files). Deep-merges with the main `storage` configuration - specify only the keys that differ from the primary storage. Useful when persistent documents need a different backend (e.g. S3 bucket) than the temporary conversion cache.",
+      "x-section-intro": "These parameters configure the settings of the persistent storage, which is used to separate the settings for the document cache file storage and the storage of the forgotten and error files. Settings that are not specified in this object are inherited from the [storage](./storage.md) object. The separation is convenient for server upgrades.",
+      "x-tenantOverride": false
+    },
+    "rabbitmq": {
+      "type": "object",
+      "description": "The RabbitMQ message queue configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "default": "amqp://localhost:5672",
+          "description": "The RabbitMQ URL.",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": false
+        },
+        "socketOptions": {
+          "type": "object",
+          "description": "The [RabbitMQ socket options](https://amqp-node.github.io/amqplib/channel_api.html#connect) that will be passed to the socket library (`net` or `tls`). These options must be fields set on the object supplied. The socket options can be used for the SSL connection and can contain the following fields:\n\n- **cert** - defines a certificate to present to the server (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **key** - defines the private key for the certificate (in PEM or pkcs12 format), **type**: string, **example**: \"\";\n\n- **passphrase** - defines a passphrase for the private key, **type**: string, **example**: \"MySecretPassword\";\n\n- **ca** - defines a list of the CA certificates in PEM format that we will trust, since we are using a self-signed certificate, **type**: array, **example**: [];\n\n- **noDelay** - defines if TCP_NODELAY (Nagle's algorithm) is set on the underlying socket or not, **type**: boolean, **example**: true.",
+          "default": {},
+          "x-tenantOverride": false
+        },
+        "exchangepubsub": {
+          "type": "object",
+          "description": "The Publisher Subscriber exchange server.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.pubsub",
+              "description": "A name of the Publisher Subscriber server.",
+              "x-tenantOverride": true
+            },
+            "options": {
+              "type": "object",
+              "description": "The [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the Publisher Subscriber server.",
+              "default": {
+                "durable": true
+              },
+              "properties": {
+                "durable": {
+                  "type": "boolean",
+                  "description": "Whether the queue will survive broker restarts.",
+                  "default": true,
+                  "x-tenantOverride": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.pubsub",
+            "options": {
+              "durable": true
+            }
+          }
+        },
+        "queuepubsub": {
+          "type": "object",
+          "description": "The Publisher Subscriber queue.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A name of the Publisher Subscriber queue.",
+              "default": "",
+              "x-tenantOverride": true
+            },
+            "options": {
+              "type": "object",
+              "description": "The [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the Publisher Subscriber queue.",
+              "default": {
+                "autoDelete": true,
+                "exclusive": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "The additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "A value of the *x-queue-type* header which specifies the queue type. Only classic queues can be used.",
+                      "default": "classic",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "autoDelete": {
+                  "type": "boolean",
+                  "description": "Whether the queue will be deleted when the number of consumers drops to zero.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "exclusive": {
+                  "type": "boolean",
+                  "description": "Whether the queue will be scoped to the connection.",
+                  "default": true,
+                  "x-tenantOverride": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "",
+            "options": {
+              "autoDelete": true,
+              "exclusive": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "queueconverttask": {
+          "type": "object",
+          "description": "A queue of tasks.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.converttask6",
+              "description": "A name of the queue of tasks.",
+              "x-tenantOverride": true
+            },
+            "options": {
+              "type": "object",
+              "description": "The [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the queue of tasks.",
+              "default": {
+                "durable": true,
+                "maxPriority": 6,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "The additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Whether the queue will survive broker restarts.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "maxPriority": {
+                  "type": "integer",
+                  "description": "A queue [priority](https://www.rabbitmq.com/docs/priority).",
+                  "default": 6,
+                  "x-tenantOverride": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.converttask6",
+            "options": {
+              "durable": true,
+              "maxPriority": 6,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "queueconvertresponse": {
+          "type": "object",
+          "description": "A queue of responses.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.convertresponse",
+              "description": "A name of the queue of responses.",
+              "x-tenantOverride": true
+            },
+            "options": {
+              "type": "object",
+              "description": "The [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the queue of responses.",
+              "default": {
+                "durable": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "The additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Whether the queue will survive broker restarts.",
+                  "default": true,
+                  "x-tenantOverride": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.convertresponse",
+            "options": {
+              "durable": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "exchangeconvertdead": {
+          "type": "object",
+          "description": "A dead letter exchange.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.exchangeconvertdead",
+              "description": "A name of the dead letter exchange.",
+              "x-tenantOverride": true
+            },
+            "options": {
+              "type": "object",
+              "description": "The [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the dead letter exchange.",
+              "default": {
+                "durable": true
+              },
+              "properties": {
+                "durable": {
+                  "type": "boolean",
+                  "description": "Whether the queue will survive broker restarts.",
+                  "default": true,
+                  "x-tenantOverride": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.exchangeconvertdead",
+            "options": {
+              "durable": true
+            }
+          }
+        },
+        "queueconvertdead": {
+          "type": "object",
+          "description": "A dead letter queue.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.convertdead",
+              "description": "A name of the dead letter queue.",
+              "x-tenantOverride": true
+            },
+            "options": {
+              "type": "object",
+              "description": "The [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the dead letter queue.",
+              "default": {
+                "durable": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "The additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Whether the queue will survive broker restarts.",
+                  "default": true,
+                  "x-tenantOverride": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.convertdead",
+            "options": {
+              "durable": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        },
+        "queuedelayed": {
+          "type": "object",
+          "description": "The delayed queue.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "ds.delayed",
+              "description": "A name of the delayed queue.",
+              "x-tenantOverride": true
+            },
+            "options": {
+              "type": "object",
+              "description": "The [settings](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertQueue) of the delayed queue.",
+              "default": {
+                "durable": true,
+                "arguments": {
+                  "x-queue-type": "classic"
+                }
+              },
+              "properties": {
+                "arguments": {
+                  "type": "object",
+                  "description": "The additional arguments, usually parameters for some kind of broker-specific extension e.g., high availability, TTL.",
+                  "default": {
+                    "x-queue-type": "classic"
+                  },
+                  "properties": {
+                    "x-queue-type": {
+                      "type": "string",
+                      "description": "A value of the *x-queue-type* header which specifies the queue type. This setting can be used to set the *quorum* queues.",
+                      "default": "classic",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "durable": {
+                  "type": "boolean",
+                  "description": "Whether the queue will survive broker restarts.",
+                  "default": true,
+                  "x-tenantOverride": true
+                }
+              }
+            }
+          },
+          "default": {
+            "name": "ds.delayed",
+            "options": {
+              "durable": true,
+              "arguments": {
+                "x-queue-type": "classic"
+              }
+            }
+          }
+        }
+      },
+      "x-section-intro": "These parameters configure the RabbitMQ message broker configuration."
+    },
+    "activemq": {
+      "type": "object",
+      "description": "The ActiveMQ message queue configuration (alternative to RabbitMQ).",
+      "additionalProperties": false,
+      "properties": {
+        "connectOptions": {
+          "type": "object",
+          "description": "The [ActiveMQ connect options](https://github.com/amqp/rhea#connectoptions).",
+          "properties": {
+            "port": {
+              "type": "integer",
+              "default": 5672,
+              "description": "A port of the server to which the ActiveMQ container is connected.",
+              "x-tenantOverride": true
+            },
+            "host": {
+              "type": "string",
+              "default": "localhost",
+              "description": "A host (host name or IP address) of the server to which the ActiveMQ container is connected.",
+              "x-tenantOverride": true
+            },
+            "reconnect": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether the ActiveMQ module will automatically attempt to reconnect if disconnected (**true**) or not (**false**).",
+              "x-tenantOverride": true
+            }
+          },
+          "default": {
+            "port": 5672,
+            "host": "localhost",
+            "reconnect": false
+          }
+        },
+        "queueconverttask": {
+          "type": "string",
+          "default": "ds.converttask",
+          "description": "A queue of tasks.",
+          "x-tenantOverride": true
+        },
+        "queueconvertresponse": {
+          "type": "string",
+          "default": "ds.convertresponse",
+          "description": "A queue of responses.",
+          "x-tenantOverride": true
+        },
+        "queueconvertdead": {
+          "type": "string",
+          "default": "ActiveMQ.DLQ",
+          "description": "A dead letter queue.",
+          "x-tenantOverride": true
+        },
+        "queuedelayed": {
+          "type": "string",
+          "default": "ds.delayed",
+          "description": "The delayed queue.",
+          "x-tenantOverride": true
+        },
+        "topicpubsub": {
+          "type": "string",
+          "default": "ds.pubsub",
+          "description": "The Publisher Subscriber topic.",
+          "x-tenantOverride": true
+        }
+      },
+      "x-section-intro": "These parameters configure the ActiveMQ message broker configuration."
+    },
+    "dnscache": {
+      "type": "object",
+      "description": "The DNS caching configuration for improved performance.",
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the DNS cache is enabled or not.",
+          "x-tenantOverride": false
+        },
+        "ttl": {
+          "type": "integer",
+          "default": 300,
+          "description": "The time when the DNS records expire (measured in seconds).",
+          "x-tenantOverride": false
+        },
+        "cachesize": {
+          "type": "integer",
+          "default": 1000,
+          "description": "The DNS cache size.",
+          "x-tenantOverride": false
+        }
+      },
+      "x-section-intro": "These parameters configure the configuration of the DNS cache which is used for the IP-filter."
+    },
+    "openpgpjs": {
+      "type": "object",
+      "description": "The OpenPGP encryption/decryption configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "type": "object",
+          "description": "The [OpenPGP protocol configuration](https://github.com/openpgpjs/openpgpjs).",
+          "default": {},
+          "x-tenantOverride": true
+        },
+        "encrypt": {
+          "type": "object",
+          "description": "The OpenPGP encryption settings.",
+          "properties": {
+            "passwords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "A password which is used for the OpenPGP encryption.",
+              "x-warning": true,
+              "default": ["verysecretstring"],
+              "x-tenantOverride": true
+            }
+          },
+          "default": {
+            "passwords": ["verysecretstring"]
+          }
+        },
+        "decrypt": {
+          "type": "object",
+          "description": "The OpenPGP decryption settings.",
+          "properties": {
+            "passwords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "A password which is used for the OpenPGP decryption.",
+              "x-warning": true,
+              "default": ["verysecretstring"],
+              "x-tenantOverride": true
+            }
+          },
+          "default": {
+            "passwords": ["verysecretstring"]
+          }
+        }
+      },
+      "x-section-intro": "These parameters configure the settings of the OpenPGP protocol, which is used to encrypt the password when opening an encrypted document for editing."
+    },
+    "aesEncrypt": {
+      "type": "object",
+      "description": "The AES encryption configuration for sensitive data.",
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "type": "object",
+          "description": "The AES-256-GCM algorithm configuration.",
+          "properties": {
+            "keyByteLength": {
+              "type": "integer",
+              "default": 32,
+              "description": "The key length measured in bytes.",
+              "x-tenantOverride": false
+            },
+            "saltByteLength": {
+              "type": "integer",
+              "default": 64,
+              "description": "The salt length measured in bytes.",
+              "x-tenantOverride": false
+            },
+            "initializationVectorByteLength": {
+              "type": "integer",
+              "default": 16,
+              "description": "The initialization vector length measured in bytes.",
+              "x-tenantOverride": false
+            },
+            "iterationsByteLength": {
+              "type": "integer",
+              "default": 5,
+              "description": "The number of decimal digits in the random PBKDF2 iteration count. The minimum is 4.",
+              "x-tenantOverride": false
+            }
+          },
+          "default": {
+            "keyByteLength": 32,
+            "saltByteLength": 64,
+            "initializationVectorByteLength": 16,
+            "iterationsByteLength": 5
+          }
+        },
+        "secret": {
+          "type": "string",
+          "default": "verysecretstring",
+          "description": "A password which is used for the AES-256-GCM encryption.",
+          "x-warning": true,
+          "x-tenantOverride": false
+        }
+      },
+      "x-section-intro": "These parameters configure the settings of the AES-256-GCM encryption algorithm used for password protection of the documents."
+    },
+    "bottleneck": {
+      "type": "object",
+      "description": "The rate limiting and bottleneck configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "getChanges": {
+          "type": "object",
+          "description": "The [constructor options](https://github.com/SGrondin/bottleneck#constructor) to generate limiters for throttling the database requests.",
+          "default": {},
+          "x-tenantOverride": true
+        }
+      }
+    },
+    "win-ca": {
+      "type": "object",
+      "description": "The Windows Certificate Authority integration (Windows only).",
+      "additionalProperties": false,
+      "properties": {
+        "inject": {
+          "type": "string",
+          "default": "+",
+          "description": "The injection mode of the Windows System Root certificates. The \"+\" means that a new experimental method is used to install certificates.",
+          "x-tenantOverride": false
         }
       }
     },
@@ -107,13 +1711,143 @@
               "additionalProperties": false,
               "x-scope": ["admin", "tenant"],
               "properties": {
-                "filesCron": {"$ref": "#/$defs/cron6", "x-scope": "admin"},
-                "documentsCron": {"$ref": "#/$defs/cron6", "x-scope": "admin"},
-                "files": {"type": "integer", "minimum": 0, "x-scope": "admin"},
-                "filesremovedatonce": {"type": "integer", "minimum": 0, "x-scope": "admin"},
-                "sessionidle": {"type": "string", "x-scope": ["admin", "tenant"]},
-                "sessionabsolute": {"type": "string", "x-scope": ["admin", "tenant"]}
-              }
+                "filesCron": {
+                  "$ref": "#/$defs/cron6",
+                  "x-scope": "admin",
+                  "description": "The time for check starting (every hour by default).",
+                  "default": "00 00 */1 * * *",
+                  "x-tenantOverride": false
+                },
+                "documentsCron": {
+                  "$ref": "#/$defs/cron6",
+                  "x-scope": "admin",
+                  "description": "The time for starting check, during which old files are deleted from the cache (every two minutes by default).",
+                  "default": "0 */2 * * * *",
+                  "x-tenantOverride": false
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "x-scope": "admin",
+                  "description": "The time of life for the folders in `App_Data`.",
+                  "default": 86400,
+                  "x-tenantOverride": false
+                },
+                "filesremovedatonce": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "x-scope": "admin",
+                  "description": "The number of simultaneously deleted document folders from the cache.",
+                  "default": 100,
+                  "x-tenantOverride": false
+                },
+                "sessionidle": {
+                  "type": "string",
+                  "x-scope": ["admin", "tenant"],
+                  "description": "The inactive session lifetime. This parameter allows ending editing session for an idle user. It is also used to initialize document saving procedure by terminating the last editing session. So, it defines the time after which an inactive user will be disconnected from the editing session. Its value format is \"1s\", \"1m\", \"1h\", \"1d\" etc.",
+                  "default": "1h",
+                  "x-note": "Please note that by inactivity, we mean the absence of any action in the editor, including cursor movement.",
+                  "x-tenantOverride": true
+                },
+                "sessionabsolute": {
+                  "type": "string",
+                  "x-scope": ["admin", "tenant"],
+                  "description": "The lifetime for any editing session.",
+                  "default": "30d",
+                  "x-tenantOverride": false
+                },
+                "changeindex": {
+                  "type": "integer",
+                  "description": "The time for changing indexes.",
+                  "default": 86400,
+                  "x-tenantOverride": true
+                },
+                "forcesave": {
+                  "type": "integer",
+                  "description": "The time of life for the forcesaving executed with success.",
+                  "default": 604800,
+                  "x-tenantOverride": false
+                },
+                "forcesaveLock": {
+                  "type": "integer",
+                  "description": "The time of life for the forcesaved locks in the ioredis cluster mode.",
+                  "default": 5000,
+                  "x-tenantOverride": false
+                },
+                "lastsave": {
+                  "type": "integer",
+                  "description": "The time of life for the last database save executed with success.",
+                  "default": 604800,
+                  "x-tenantOverride": true
+                },
+                "lockDoc": {
+                  "type": "integer",
+                  "description": "The time for locking documents.",
+                  "default": 30,
+                  "x-tenantOverride": true
+                },
+                "locks": {
+                  "type": "integer",
+                  "description": "The time of life for the locks.",
+                  "default": 604800,
+                  "x-tenantOverride": false
+                },
+                "message": {
+                  "type": "integer",
+                  "description": "The time of life for the messages.",
+                  "default": 86400,
+                  "x-tenantOverride": false
+                },
+                "monthUniqueUsers": {
+                  "type": "string",
+                  "description": "The time of life for the list of the month unique users.",
+                  "default": "1y",
+                  "x-tenantOverride": false
+                },
+                "pemCheckPeriod": {
+                  "type": "string",
+                  "description": "The time for checking the PEM files ttl.",
+                  "default": "10m",
+                  "x-tenantOverride": false
+                },
+                "pemStdTTL": {
+                  "type": "string",
+                  "description": "The time of life for the PEM files with secrets.",
+                  "default": "1h",
+                  "x-tenantOverride": false
+                },
+                "presence": {
+                  "type": "integer",
+                  "description": "The time of life for the user presence status.",
+                  "default": 300,
+                  "x-tenantOverride": false
+                },
+                "saved": {
+                  "type": "integer",
+                  "description": "The time of life for the database save executed with success.",
+                  "default": 3600,
+                  "x-tenantOverride": false
+                },
+                "saveLock": {
+                  "type": "integer",
+                  "description": "The time for saving locks.",
+                  "default": 60,
+                  "x-tenantOverride": true
+                },
+                "sessionclosecommand": {
+                  "type": "string",
+                  "description": "The time before the `sessionidle` or `sessionabsolute ttl` expires when a warning message is sent.",
+                  "default": "2m",
+                  "x-tenantOverride": true
+                },
+                "updateVersionStatus": {
+                  "type": "string",
+                  "description": "The time when the user can open the file again after an error occurs due to opening an already saved file using the old key.",
+                  "default": "5m",
+                  "x-tenantOverride": true
+                }
+              },
+              "x-section-intro": "These parameters configure the expiration settings."
             },
             "request-filtering-agent": {
               "type": "object",
@@ -122,21 +1856,100 @@
               "properties": {
                 "allowPrivateIPAddress": {
                   "type": "boolean",
-                  "description": "Whether to allow requests from private IP addresses"
+                  "description": "Whether it is allowed to connect private IP address or not. This includes private IP addresses and reserved IP addresses.",
+                  "default": false,
+                  "x-tenantOverride": false
                 },
                 "allowMetaIPAddress": {
                   "type": "boolean",
-                  "description": "Whether to allow requests from meta IP addresses"
+                  "description": "Whether it is allowed to connect meta IP address or not. Meta address can be `0.0.0.0` (IPv4) or `::` (IPv6) - a meta address that routing another address.",
+                  "default": false,
+                  "x-tenantOverride": false
+                },
+                "allowIPAddressList": {
+                  "type": "array",
+                  "description": "The IP addresses that are allowed even when they are private. The request-filtering-agent applies this list before its own meta, private and deny checks. It does not make a host a permitted WOPI destination: that is decided by `services.CoAuthoring.ipfilter.rules`.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "denyIPAddressList": {
+                  "type": "array",
+                  "description": "The IP addresses that are never allowed. For WOPI destinations this list is applied before `services.CoAuthoring.ipfilter.rules`, so an address listed here is refused even when a rule names it. For the other requests the request-filtering-agent's own precedence applies, where `allowIPAddressList` is checked first. The list covers the requests that go through the filtering agent; see `externalRequest` for the requests that are sent directly.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
                 }
-              }
+              },
+              "x-section-intro": "These parameters configure the [Request Filtering Agent configuration](https://github.com/azu/request-filtering-agent#api)."
+            },
+            "requestDefaults": {
+              "type": "object",
+              "additionalProperties": false,
+              "x-scope": ["admin"],
+              "description": "The default options for outgoing HTTP/HTTPS requests.",
+              "properties": {
+                "rejectUnauthorized": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Whether TLS certificates are verified. Set to `false` only for diagnostics with self-signed or invalid certificates.",
+                  "x-tenantOverride": true
+                },
+                "checksumVerification": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Whether downloaded content is verified against integrity response headers (Content-Length, Repr-Digest, Content-Digest, Digest, x-amz-checksum-*, x-goog-hash, OC-Checksum, Content-MD5) and caller-provided expected digests such as WOPI SHA256. When enabled, the Want-Repr-Digest and Want-Content-Digest headers are added to download requests.",
+                  "x-tenantOverride": true
+                },
+                "headers": {
+                  "type": "object",
+                  "description": "Default HTTP headers added to every outgoing request.",
+                  "properties": {
+                    "User-Agent": {
+                      "type": "string",
+                      "description": "HTTP User-Agent header sent with outgoing requests.",
+                      "default": "DocumentServer",
+                      "x-tenantOverride": true
+                    },
+                    "Connection": {
+                      "type": "string",
+                      "description": "HTTP Connection header controlling keep-alive behaviour for outgoing requests.",
+                      "default": "Keep-Alive",
+                      "x-tenantOverride": true
+                    }
+                  }
+                }
+              },
+              "x-section-intro": "These parameters configure the [default request configuration](https://github.com/request/request#requestoptions-callback)."
             },
             "autoAssembly": {
               "type": "object",
               "additionalProperties": false,
               "x-scope": ["admin", "tenant"],
               "properties": {
-                "step": {"type": "string", "enum": ["1m", "5m", "10m", "15m", "30m"]}
-              }
+                "step": {
+                  "type": "string",
+                  "enum": ["1m", "5m", "10m", "15m", "30m"],
+                  "description": "The interval between automatic force-save checks, as a duration string.",
+                  "default": "1m",
+                  "x-tenantOverride": false
+                },
+                "enable": {
+                  "type": "boolean",
+                  "description": "Whether the automatic forcesaving is enabled or not.",
+                  "default": false,
+                  "x-tenantOverride": true
+                },
+                "interval": {
+                  "type": "string",
+                  "description": "The interval time for initiating the automatic forcesaving, as a duration string.",
+                  "default": "5m",
+                  "x-tenantOverride": true
+                }
+              },
+              "x-section-intro": "These parameters configure the automatic forcesaving configuration."
             },
             "ipfilter": {
               "type": "object",
@@ -145,7 +1958,7 @@
               "properties": {
                 "rules": {
                   "type": "array",
-                  "description": "Array of IP filtering rules",
+                  "description": "The IP filter rules that contain the following parameters:\n\n- **address** - the IP address of the integrator. This parameter can contain IP in the X.X.X.X format for ipv4 or in the xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx format for ipv6, dns-name or * wildcard to replace any symbol/symbols, **type**: string, **example**: \"ip_address\";\n\n- **allowed** - specifies if the IP address is trusted or not, **type**: boolean, **example**: true.",
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
@@ -153,60 +1966,1683 @@
                     "properties": {
                       "address": {
                         "type": "string",
-                        "description": "IP address, CIDR notation, or '*' for all (e.g., '192.168.1.0/24', '10.0.0.1', '*')"
+                        "description": "The IP address, host name, or `*` wildcard pattern (e.g., `10.0.0.1`, `nextcloud.example.com`, `*.example.com`, `*`)."
                       },
                       "allowed": {
                         "type": "boolean",
                         "description": "Whether this address/range is allowed (true) or denied (false)"
                       }
                     }
-                  }
+                  },
+                  "default": [
+                    {
+                      "address": "*",
+                      "allowed": true
+                    }
+                  ],
+                  "x-tenantOverride": true
                 },
                 "useforrequest": {
                   "type": "boolean",
-                  "description": "Whether to use IP filtering for requests"
+                  "description": "Whether the IP filter is used for the request or not.",
+                  "default": false,
+                  "x-tenantOverride": true
                 },
                 "errorcode": {
                   "type": "integer",
                   "minimum": 400,
                   "maximum": 599,
-                  "description": "HTTP error code to return when IP is not allowed"
+                  "description": "An error code for the IP filter.",
+                  "default": 403,
+                  "x-tenantOverride": true
                 }
-              }
+              },
+              "x-section-intro": "These parameters configure the IP filter configuration."
             },
             "sql": {
               "type": "object",
-              "description": "Database connection settings for the CoAuthoring service",
+              "description": "The database connection settings for the CoAuthoring service.",
               "additionalProperties": false,
               "x-scope": "admin",
               "properties": {
                 "type": {
                   "type": "string",
-                  "description": "Database type (e.g., 'mysql', 'mariadb', 'mssql', 'postgres', 'dameng', 'oracle')",
-                  "examples": ["postgres"]
+                  "description": "The database type (`mysql`, `mariadb`, `mssql`, `postgres`, `dameng`, `oracle`).",
+                  "default": "postgres",
+                  "x-tenantOverride": false
                 },
                 "dbHost": {
                   "type": "string",
-                  "description": "Database host name or IP address",
-                  "examples": ["localhost"]
+                  "description": "The database server host (host name or IP address).",
+                  "default": "localhost",
+                  "x-tenantOverride": false
                 },
                 "dbPort": {
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 65535,
-                  "description": "Database TCP port",
-                  "examples": [5432]
+                  "description": "The database server port.",
+                  "default": 5432,
+                  "x-tenantOverride": false
                 },
                 "dbName": {
                   "type": "string",
-                  "description": "Database name",
-                  "examples": ["onlyoffice"]
+                  "description": "A name of a database to be created on the image startup.",
+                  "default": "onlyoffice",
+                  "x-tenantOverride": false
+                },
+                "charset": {
+                  "type": "string",
+                  "description": "The database charset.",
+                  "default": "utf8",
+                  "x-tenantOverride": false
+                },
+                "connectionlimit": {
+                  "type": "integer",
+                  "description": "The maximum number of the simultaneous user connections to the database server.",
+                  "default": 10,
+                  "x-tenantOverride": false
+                },
+                "damengExtraOptions": {
+                  "type": "object",
+                  "description": "The Dameng database parameters.",
+                  "default": {
+                    "columnNameUpperCase": false,
+                    "columnNameCase": "lower",
+                    "connectTimeout": 60000,
+                    "loginEncrypt": false,
+                    "localTimezone": 0,
+                    "poolTimeout": 60,
+                    "socketTimeout": 60000,
+                    "queueTimeout": 60000
+                  },
+                  "properties": {
+                    "columnNameCase": {
+                      "type": "string",
+                      "description": "The case of column names.",
+                      "default": "lower",
+                      "x-tenantOverride": false
+                    },
+                    "columnNameUpperCase": {
+                      "type": "boolean",
+                      "description": "Whether the column names are uppercase or not.",
+                      "default": false,
+                      "x-tenantOverride": false
+                    },
+                    "connectTimeout": {
+                      "type": "integer",
+                      "description": "A number of milliseconds to wait for a connection.",
+                      "default": 60000,
+                      "x-tenantOverride": false
+                    },
+                    "localTimezone": {
+                      "type": "integer",
+                      "description": "The local timezone.",
+                      "default": 0,
+                      "x-tenantOverride": false
+                    },
+                    "loginEncrypt": {
+                      "type": "boolean",
+                      "description": "Whether the login encryption is enabled or not.",
+                      "default": false,
+                      "x-tenantOverride": false
+                    },
+                    "poolTimeout": {
+                      "type": "integer",
+                      "description": "A number of seconds after which the pool terminates idle connections (unused in the pool).",
+                      "default": 60,
+                      "x-tenantOverride": false
+                    },
+                    "queueTimeout": {
+                      "type": "integer",
+                      "description": "A number of milliseconds when messages are retained in the queue before they are discarded.",
+                      "default": 60000,
+                      "x-tenantOverride": false
+                    },
+                    "socketTimeout": {
+                      "type": "integer",
+                      "description": "A number of milliseconds when a connection request made by a client or a server doesn't receive a response from the other end.",
+                      "default": 60000,
+                      "x-tenantOverride": false
+                    }
+                  }
+                },
+                "dbPass": {
+                  "type": "string",
+                  "description": "A password set to the database account.",
+                  "x-warning": true,
+                  "default": "onlyoffice",
+                  "x-tenantOverride": false
+                },
+                "dbUser": {
+                  "type": "string",
+                  "description": "A new username with superuser permissions for the database account.",
+                  "default": "onlyoffice",
+                  "x-tenantOverride": false
+                },
+                "max_allowed_packet": {
+                  "type": "integer",
+                  "description": "The maximum size of data that can be sent in one request.",
+                  "default": 1048575,
+                  "x-tenantOverride": false
+                },
+                "msSqlExtraOptions": {
+                  "type": "object",
+                  "description": "The MS SQL database parameters.",
+                  "default": {
+                    "options": {
+                      "encrypt": false,
+                      "trustServerCertificate": true
+                    },
+                    "pool": {
+                      "idleTimeoutMillis": 30000
+                    }
+                  },
+                  "properties": {
+                    "options": {
+                      "type": "object",
+                      "description": "The MS SQL database options.",
+                      "default": {
+                        "encrypt": false,
+                        "trustServerCertificate": true
+                      },
+                      "properties": {
+                        "encrypt": {
+                          "type": "boolean",
+                          "description": "Whether the data will be encrypted before sending it over the network.",
+                          "default": false,
+                          "x-tenantOverride": false
+                        },
+                        "trustServerCertificate": {
+                          "type": "boolean",
+                          "description": "Whether an encryption occurs when there is no verified server certificate.",
+                          "default": true,
+                          "x-tenantOverride": false
+                        }
+                      }
+                    },
+                    "pool": {
+                      "type": "object",
+                      "description": "The parameters of the connection pool.",
+                      "default": {
+                        "idleTimeoutMillis": 30000
+                      },
+                      "properties": {
+                        "idleTimeoutMillis": {
+                          "type": "integer",
+                          "description": "A number of milliseconds a client must remain idle in the pool and not be checked out before it is disconnected from the backend and discarded. Set to 0 to disable automatic disconnection of idle clients.",
+                          "default": 30000,
+                          "x-tenantOverride": false
+                        }
+                      }
+                    }
+                  }
+                },
+                "mysqlExtraOptions": {
+                  "type": "object",
+                  "description": "The connection parameters of the MySQL database (including SSL settings) that can be passed directly to the [node-mysql2](https://sidorares.github.io/node-mysql2/docs/examples/connections/create-connection#connectionoptions) module.",
+                  "default": {
+                    "connectTimeout": 60000,
+                    "queryTimeout": 60000
+                  },
+                  "properties": {
+                    "connectTimeout": {
+                      "type": "integer",
+                      "description": "A number of milliseconds to wait for a connection.",
+                      "default": 60000,
+                      "x-tenantOverride": false
+                    },
+                    "queryTimeout": {
+                      "type": "integer",
+                      "description": "A number of milliseconds before a query call times out.",
+                      "default": 60000,
+                      "x-tenantOverride": false
+                    }
+                  }
+                },
+                "oracleExtraOptions": {
+                  "type": "object",
+                  "description": "The Oracle database parameters.",
+                  "default": {
+                    "thin": true,
+                    "connectTimeout": 60
+                  },
+                  "properties": {
+                    "connectTimeout": {
+                      "type": "integer",
+                      "description": "A number of seconds to wait for a connection.",
+                      "default": 60,
+                      "x-tenantOverride": false
+                    },
+                    "thin": {
+                      "type": "boolean",
+                      "description": "Whether to use the Oracle Thin driver. False means Thick mode with Oracle Client libraries.",
+                      "default": true,
+                      "x-tenantOverride": false
+                    }
+                  }
+                },
+                "pgPoolExtraOptions": {
+                  "type": "object",
+                  "description": "The parameters that can be passed directly to the [node-postgres pool](https://github.com/brianc/node-postgres-docs/blob/master/content/api/1-pool.mdx#new-poolconfig-object) library.",
+                  "default": {
+                    "idleTimeoutMillis": 30000,
+                    "connectionTimeoutMillis": 60000,
+                    "maxLifetimeSeconds": 1800,
+                    "statement_timeout": 0,
+                    "query_timeout": 300000
+                  },
+                  "properties": {
+                    "connectionTimeoutMillis": {
+                      "type": "integer",
+                      "description": "A number of milliseconds to wait for a connection.",
+                      "default": 60000,
+                      "x-tenantOverride": false
+                    },
+                    "idleTimeoutMillis": {
+                      "type": "integer",
+                      "description": "A number of milliseconds a client must remain idle in the pool and not be checked out before it is disconnected from the backend and discarded. Set to 0 to disable automatic disconnection of idle clients.",
+                      "default": 30000,
+                      "x-tenantOverride": false
+                    },
+                    "maxLifetimeSeconds": {
+                      "type": "integer",
+                      "description": "A number of seconds after which a pooled connection is recycled. A running query is never interrupted: the connection is marked as expired and closed when it is returned to the pool. Recycling lets the pool pick up a database failover or an address change and bounds the lifetime of a backend process. Set to 0 to disable recycling.",
+                      "default": 1800,
+                      "x-tenantOverride": false
+                    },
+                    "query_timeout": {
+                      "type": "integer",
+                      "description": "A number of milliseconds before a query call times out on the client side. When it fires, the query is reported as failed and the pool destroys the connection, but the query is not cancelled on the server explicitly. While `statement_timeout` is 0, this is the only limit that keeps a stuck query from holding a pool slot forever. Set to 0 to disable.",
+                      "default": 300000,
+                      "x-tenantOverride": false
+                    },
+                    "statement_timeout": {
+                      "type": "integer",
+                      "description": "A number of milliseconds before the query statement times out on the server side. It is passed in the PostgreSQL startup message, so a connection pooler may reject the connection, silently drop the value or forward it to the backend: PgBouncer rejects it unless the parameter is listed in its `ignore_startup_parameters`, and listing it there makes the pooler drop the value instead of applying it. Behind a pooler set the limit on the database itself, for example `ALTER ROLE onlyoffice SET statement_timeout = '60s'`. Set to 0 to disable, which is the default.",
+                      "default": 0,
+                      "x-tenantOverride": false
+                    }
+                  }
+                },
+                "tableChanges": {
+                  "type": "string",
+                  "description": "The database table name where all the document changes are stored.",
+                  "default": "doc_changes",
+                  "x-tenantOverride": false
+                },
+                "tableResult": {
+                  "type": "string",
+                  "description": "The database table name where the query result is stored.",
+                  "default": "task_result",
+                  "x-tenantOverride": false
                 }
-              }
+              },
+              "x-section-intro": "These parameters configure the database configuration."
+            },
+            "callbackBackoffOptions": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "httpStatus": {
+                  "type": "string",
+                  "description": "The HTTP statuses of the callback backoff.",
+                  "default": "429,500-599",
+                  "x-tenantOverride": true
+                },
+                "retries": {
+                  "type": "integer",
+                  "description": "The maximum amount of times to retry the operation.",
+                  "default": 3,
+                  "x-tenantOverride": true
+                },
+                "timeout": {
+                  "type": "object",
+                  "description": "The callback backoff timeouts.",
+                  "default": {
+                    "factor": 2,
+                    "minTimeout": 1000,
+                    "maxTimeout": 2147483647,
+                    "randomize": false
+                  },
+                  "properties": {
+                    "factor": {
+                      "type": "integer",
+                      "description": "The exponential factor to use.",
+                      "default": 2,
+                      "x-tenantOverride": true
+                    },
+                    "maxTimeout": {
+                      "type": "integer",
+                      "description": "The maximum number of milliseconds between two retries.",
+                      "default": 2147483647,
+                      "x-tenantOverride": true
+                    },
+                    "minTimeout": {
+                      "type": "integer",
+                      "description": "The number of milliseconds before starting the first try.",
+                      "default": 1000,
+                      "x-tenantOverride": true
+                    },
+                    "randomize": {
+                      "type": "boolean",
+                      "description": "Whether the timeouts are randomized by multiplying with a factor between 1 and 2 or not.",
+                      "default": false,
+                      "x-tenantOverride": true
+                    }
+                  }
+                }
+              },
+              "x-section-intro": "These parameters configure the [callback backoff options](https://github.com/tim-kos/node-retry#retrytimeoutsoptions)."
+            },
+            "editor": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "binaryChanges": {
+                  "type": "boolean",
+                  "description": "Whether the document changes are saved in binary (**true**) or JSON (**false**) format.",
+                  "default": false,
+                  "x-tenantOverride": false
+                },
+                "maxChangesSize": {
+                  "type": "string",
+                  "description": "A limit on the total size of the changes made to the document. When the limit is exceeded, the user receives a dialog box with a suggestion to cancel the last action or switch to the offline mode.",
+                  "default": "150MB",
+                  "x-tenantOverride": true
+                },
+                "reconnection": {
+                  "type": "object",
+                  "description": "The settings for reconnecting the editor to the server.",
+                  "default": {
+                    "attempts": 50,
+                    "delay": "2s"
+                  },
+                  "properties": {
+                    "attempts": {
+                      "type": "integer",
+                      "description": "A maximum number of attempts to reconnect the editor.",
+                      "default": 50,
+                      "x-tenantOverride": true
+                    },
+                    "delay": {
+                      "type": "string",
+                      "description": "The attempt delay for reconnecting the editor.",
+                      "default": "2s",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "websocketMaxPayloadSize": {
+                  "type": "string",
+                  "description": "A maximum payload size of WebSocket.",
+                  "default": "1.5MB",
+                  "x-tenantOverride": true
+                }
+              },
+              "x-section-intro": "These parameters configure the editor configuration."
+            },
+            "plugins": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "autostart": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "A list of plugins that run automatically.",
+                  "default": [],
+                  "x-tenantOverride": false
+                },
+                "uri": {
+                  "type": "string",
+                  "description": "A path to the folder where all the plugins are stored.",
+                  "default": "/sdkjs-plugins",
+                  "x-tenantOverride": false
+                }
+              },
+              "x-section-intro": "These parameters configure the plugins configuration."
+            },
+            "pubsub": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "maxChanges": {
+                  "type": "integer",
+                  "description": "The maximum size of changes which can be passed via PubSub. If the size exceeds the specified value, the changes will be read from the database.",
+                  "default": 1000,
+                  "x-tenantOverride": true
+                }
+              },
+              "x-section-intro": "This parameter configures the PubSub service configuration."
+            },
+            "redis": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "description": "The Redis server host (host name or IP address).",
+                  "default": "127.0.0.1",
+                  "x-tenantOverride": false
+                },
+                "iooptions": {
+                  "type": "object",
+                  "description": "The parameters (username, password, modules etc.) that can be passed directly to the [ioredis RedisOptions](https://github.com/redis/ioredis/blob/main/lib/redis/RedisOptions.ts) library.",
+                  "default": {
+                    "lazyConnect": true
+                  },
+                  "properties": {
+                    "lazyConnect": {
+                      "type": "boolean",
+                      "description": "Whether the connection to the server will be delayed until the first command is sent or *redis.connect()* is called explicitly.",
+                      "default": true,
+                      "x-tenantOverride": false
+                    }
+                  }
+                },
+                "iooptionsClusterNodes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "A list of nodes of the cluster you want to connect to that can be passed directly to the [ioredis cluster](https://github.com/redis/ioredis#cluster) library\nto connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
+                  "default": [],
+                  "x-tenantOverride": false
+                },
+                "iooptionsClusterOptions": {
+                  "type": "object",
+                  "description": "The parameters (clusterRetryStrategy, dnsLookup, scaleReads etc.) that can be passed directly to the [ioredis cluster](https://github.com/redis/ioredis#cluster) library\nto connect to the redis cluster. This setting has the priority over the *iooptions* parameter for connecting to the single redis.",
+                  "default": {
+                    "lazyConnect": true
+                  },
+                  "properties": {
+                    "lazyConnect": {
+                      "type": "boolean",
+                      "description": "Whether the connection to the server will be delayed until the first command is sent or *redis.connect()* is called explicitly.",
+                      "default": true,
+                      "x-tenantOverride": false
+                    }
+                  }
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The Redis client library, `\"redis\"` or `\"ioredis\"`.",
+                  "default": "redis",
+                  "x-tenantOverride": false
+                },
+                "options": {
+                  "type": "object",
+                  "description": "The parameters (username, password, modules etc.) that can be passed directly to the [node-redis createClient](https://github.com/redis/node-redis/blob/master/docs/client-configuration.md) library.",
+                  "default": {},
+                  "x-tenantOverride": false
+                },
+                "optionsCluster": {
+                  "type": "object",
+                  "description": "The parameters (rootNodes, defaults, modules etc.) that can be passed directly to the [node-redis clustering](https://github.com/redis/node-redis/blob/master/docs/clustering.md)\nlibrary to connect to the redis cluster. This setting has the priority over the *options* parameter for connecting to the single redis.",
+                  "default": {},
+                  "x-tenantOverride": false
+                },
+                "port": {
+                  "type": "integer",
+                  "description": "The Redis server port.",
+                  "default": 6379,
+                  "x-tenantOverride": false
+                },
+                "prefix": {
+                  "type": "string",
+                  "description": "The name prefix for all the used structures in Redis.",
+                  "default": "ds:",
+                  "x-tenantOverride": false
+                }
+              },
+              "x-section-intro": "These parameters configure the Redis configuration."
+            },
+            "secret": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "browser": {
+                  "type": "object",
+                  "description": "The parameters of a secret key to generate a token in the client-side browser requests to ONLYOFFICE Docs.",
+                  "default": {
+                    "string": "developer-only-not-a-real-secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "developer-only-not-a-real-secret",
+                      "x-tenantOverride": true
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": "",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "inbox": {
+                  "type": "object",
+                  "description": "The parameters of a secret key to generate a token in the incoming HTTP requests with the commands from the **document storage service** to the **document command service**, **document conversion service** and **document builder service**.",
+                  "default": {
+                    "string": "developer-only-not-a-real-secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "developer-only-not-a-real-secret",
+                      "x-tenantOverride": true
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": "",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "outbox": {
+                  "type": "object",
+                  "description": "The parameters of a secret key to generate a token in the outgoing HTTP requests to the `callbackUrl` address by **document editing service**.",
+                  "default": {
+                    "string": "developer-only-not-a-real-secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "developer-only-not-a-real-secret",
+                      "x-tenantOverride": true
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": "",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "session": {
+                  "type": "object",
+                  "description": "The parameters of a secret key to generate the session token.",
+                  "default": {
+                    "string": "developer-only-not-a-real-secret",
+                    "file": ""
+                  },
+                  "properties": {
+                    "string": {
+                      "type": "string",
+                      "description": "Inline plaintext secret value. Takes priority over the file option when both are set.",
+                      "default": "developer-only-not-a-real-secret",
+                      "x-tenantOverride": true
+                    },
+                    "file": {
+                      "type": "string",
+                      "description": "Path to a file containing the secret value. Loaded once and cached. Leave empty to use the string value.",
+                      "default": "",
+                      "x-tenantOverride": true
+                    }
+                  }
+                }
+              },
+              "x-section-intro": "These parameters configure the secret key configuration."
+            },
+            "server": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "assemblyFormatAsOrigin": {
+                  "type": "boolean",
+                  "description": "Whether the assembled file is saved in its original format or not.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "callbackRequestTimeout": {
+                  "type": "object",
+                  "description": "The timeout properties for callback requesting.",
+                  "default": {
+                    "connectionAndInactivity": "10m",
+                    "wholeCycle": "10m"
+                  },
+                  "properties": {
+                    "connectionAndInactivity": {
+                      "type": "string",
+                      "description": "The request timeout as a duration string. `wholeCycle` limits the whole request cycle.",
+                      "default": "10m",
+                      "x-tenantOverride": true
+                    },
+                    "wholeCycle": {
+                      "type": "string",
+                      "description": "The whole request cycle timeout.",
+                      "default": "10m",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "convertServiceEnable": {
+                  "type": "boolean",
+                  "description": "Whether the conversion public API endpoints are enabled or not. When disabled, requests to /converter, /converter/from-file and /ConvertService.ashx are rejected with HTTP 403. Conversions initiated by the editors are not affected.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "docbuilderEnable": {
+                  "type": "boolean",
+                  "description": "Whether the /docbuilder public API endpoints are enabled or not. When disabled, requests to /docbuilder and /docbuilder/from-file are rejected with HTTP 403.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "documentFormatsFile": {
+                  "type": "string",
+                  "description": "A path to the \"onlyoffice-docs-formats\" file.",
+                  "default": "../../document-formats/onlyoffice-docs-formats.json",
+                  "x-tenantOverride": false
+                },
+                "downloadFileAllowExt": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The extensions allowed to be downloaded via the downloadFile handler.",
+                  "default": ["pdf", "xlsx"],
+                  "x-tenantOverride": true
+                },
+                "edit_singleton": {
+                  "type": "boolean",
+                  "description": "Whether the singleton can be edited or not.",
+                  "default": false,
+                  "x-tenantOverride": true
+                },
+                "editorDataStorage": {
+                  "type": "string",
+                  "enum": ["editorDataMemory", "editorDataRedis"],
+                  "description": "The editor data storage. The possible values: *\"editorDataMemory\"*, *\"editorDataRedis\"*.",
+                  "default": "editorDataMemory",
+                  "x-tenantOverride": false
+                },
+                "editorStatStorage": {
+                  "type": "string",
+                  "enum": ["", "editorDataMemory", "editorDataRedis"],
+                  "description": "The editor data storage for license calculation and statistics (local memory or redis). The possible values are *\"editorDataMemory\"*, *\"editorDataRedis\"*, or *\"\"*. The default *\"\"* value means that the value of the *editorDataStorage* parameter will be used. This parameter is primarily used for a sharded cluster.",
+                  "default": "",
+                  "x-tenantOverride": false
+                },
+                "forceSaveUsingButtonWithoutChanges": {
+                  "type": "boolean",
+                  "description": "Whether a file without any changes can be forcesaved by clicking the **Save** button.",
+                  "default": false,
+                  "x-tenantOverride": true
+                },
+                "forgottenfiles": {
+                  "type": "string",
+                  "description": "A folder name where all the forgotten files are stored.",
+                  "default": "forgotten",
+                  "x-tenantOverride": true
+                },
+                "forgottenfilesname": {
+                  "type": "string",
+                  "description": "A forgotten file name.",
+                  "default": "output",
+                  "x-tenantOverride": true
+                },
+                "healthcheckfilepath": {
+                  "type": "string",
+                  "description": "A path where the health check requests will be sent.",
+                  "default": "../public/healthcheck.docx",
+                  "x-tenantOverride": true
+                },
+                "isAnonymousSupport": {
+                  "type": "boolean",
+                  "description": "Whether the anonymous users have access to the editor or live viewer or not.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "limits_image_download_timeout": {
+                  "type": "object",
+                  "description": "The timeout properties for downloading images.",
+                  "default": {
+                    "connectionAndInactivity": "2m",
+                    "wholeCycle": "2m"
+                  },
+                  "properties": {
+                    "connectionAndInactivity": {
+                      "type": "string",
+                      "description": "The request timeout as a duration string. `wholeCycle` limits the whole request cycle.",
+                      "default": "2m",
+                      "x-tenantOverride": true
+                    },
+                    "wholeCycle": {
+                      "type": "string",
+                      "description": "The whole request cycle - a period from the download start to the full download.",
+                      "default": "2m",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "limits_image_size": {
+                  "type": "integer",
+                  "description": "A maximum size for all the images uploaded in each process (measured in bytes).",
+                  "default": 26214400,
+                  "x-tenantOverride": true
+                },
+                "limits_tempfile_upload": {
+                  "type": "integer",
+                  "description": "A maximum size for all the uploaded temporary files used by each process (measured in bytes).",
+                  "default": 104857600,
+                  "x-tenantOverride": false
+                },
+                "maxRequestChanges": {
+                  "type": "integer",
+                  "description": "The maximum number of change records read from the database at once.",
+                  "default": 20000,
+                  "x-tenantOverride": true
+                },
+                "mode": {
+                  "type": "string",
+                  "description": "The server mode.",
+                  "default": "development",
+                  "x-tenantOverride": true
+                },
+                "host": {
+                  "type": "string",
+                  "description": "The bind address of the HTTP listener. An empty value listens on all interfaces.",
+                  "default": "",
+                  "x-scope": [],
+                  "x-tenantOverride": false
+                },
+                "newFileTemplate": {
+                  "type": "string",
+                  "description": "A path to the \"new\" file template if a file of 0 bytes was received from the link for opening.",
+                  "default": "../../document-templates/new",
+                  "x-tenantOverride": true
+                },
+                "openProtectedFile": {
+                  "type": "boolean",
+                  "description": "Whether the password-protected files can be opened or not.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "port": {
+                  "type": "integer",
+                  "description": "The server port.",
+                  "default": 8000,
+                  "x-tenantOverride": false
+                },
+                "savetimeoutdelay": {
+                  "type": "integer",
+                  "description": "The conversion start delay time (measured in milliseconds) after the edited file is closed.",
+                  "default": 5000,
+                  "x-tenantOverride": true
+                },
+                "tokenRequiredParams": {
+                  "type": "boolean",
+                  "description": "Whether the [required token parameters](https://api.onlyoffice.com/docs/docs-api/additional-api/signature/browser/#opening-file) will be validated.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "workerpercpu": {
+                  "type": "integer",
+                  "description": "A number of worker threads per CPU.",
+                  "default": 1,
+                  "x-tenantOverride": true
+                }
+              },
+              "x-section-intro": "These parameters configure the server configuration."
+            },
+            "socketio": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "connection": {
+                  "type": "object",
+                  "description": "The connection properties.",
+                  "default": {
+                    "path": "/doc/",
+                    "serveClient": false,
+                    "pingTimeout": 20000,
+                    "pingInterval": 25000,
+                    "maxHttpBufferSize": 100000000
+                  },
+                  "properties": {
+                    "maxHttpBufferSize": {
+                      "type": "integer",
+                      "description": "The maximum number of bytes a single message can be, before closing the socket.",
+                      "default": 100000000,
+                      "x-tenantOverride": false
+                    },
+                    "path": {
+                      "type": "string",
+                      "description": "The path that is captured on the server side.",
+                      "default": "/doc/",
+                      "x-tenantOverride": false
+                    },
+                    "pingInterval": {
+                      "type": "integer",
+                      "description": "The interval time in milliseconds, which is used to check if the connection is still alive between the server and the client.\nThe server sends a ping packet to the client, and if the client does not respond with a pong within a `pingTimeout` period,\nthe server considers that the connection is closed.",
+                      "default": 25000,
+                      "x-tenantOverride": false
+                    },
+                    "pingTimeout": {
+                      "type": "integer",
+                      "description": "The timeout period in milliseconds within which the client must respond with a pong to the server ping.\nIf there is no response, the server considers that the connection is closed.\nThe connection between the server and the client is checked every `pingInterval` milliseconds.",
+                      "default": 20000,
+                      "x-tenantOverride": false
+                    },
+                    "serveClient": {
+                      "type": "boolean",
+                      "description": "Whether the client files will be served or not.",
+                      "default": false,
+                      "x-tenantOverride": false
+                    }
+                  }
+                }
+              },
+              "x-section-intro": "These parameters configure the Socket.IO module configuration."
+            },
+            "sockjs": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "disable_cors": {
+                  "type": "boolean",
+                  "description": "Whether CORS is disabled for the SockJS endpoints or not. When the value is **true**, the **Access-Control-Allow-Origin** header is not sent.",
+                  "default": true,
+                  "x-tenantOverride": true
+                },
+                "sockjs_url": {
+                  "type": "string",
+                  "description": "A path to the `sockjs.min.js` file.",
+                  "default": "",
+                  "x-tenantOverride": true
+                },
+                "websocket": {
+                  "type": "boolean",
+                  "description": "Whether the WebSocket protocol is enabled or not.",
+                  "default": true,
+                  "x-tenantOverride": true
+                }
+              },
+              "x-section-intro": "These parameters configure the SockJs configuration."
+            },
+            "themes": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "uri": {
+                  "type": "string",
+                  "description": "A path to the folder where all the *json* files with the custom color themes are stored.",
+                  "default": "/web-apps/apps/common/main/resources/themes",
+                  "x-tenantOverride": false
+                }
+              },
+              "x-section-intro": "This parameter configures the properties of the custom color themes."
+            },
+            "token": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "browser": {
+                  "type": "object",
+                  "description": "The browser token configuration.",
+                  "default": {
+                    "secretFromInbox": true
+                  },
+                  "properties": {
+                    "secretFromInbox": {
+                      "type": "boolean",
+                      "description": "Whether the browser token is equal to the token from the incoming requests (`true`) or not (`false`).",
+                      "default": true,
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "enable": {
+                  "type": "object",
+                  "description": "Whether the tokens are enabled or not.",
+                  "default": {
+                    "browser": true,
+                    "request": {
+                      "inbox": true,
+                      "outbox": true
+                    }
+                  },
+                  "properties": {
+                    "browser": {
+                      "type": "boolean",
+                      "description": "Whether a token in the client-side browser requests is enabled or not.",
+                      "default": true,
+                      "x-tenantOverride": true
+                    },
+                    "request": {
+                      "type": "object",
+                      "description": "Whether the tokens in the HTTP requests are enabled or not.",
+                      "default": {
+                        "inbox": true,
+                        "outbox": true
+                      },
+                      "properties": {
+                        "inbox": {
+                          "type": "boolean",
+                          "description": "Whether a token in the incoming HTTP requests is enabled or not.",
+                          "default": true,
+                          "x-tenantOverride": true
+                        },
+                        "outbox": {
+                          "type": "boolean",
+                          "description": "Whether a token in the outgoing HTTP requests is enabled or not.",
+                          "default": true,
+                          "x-tenantOverride": true
+                        }
+                      }
+                    }
+                  }
+                },
+                "purposeCheck": {
+                  "type": "string",
+                  "description": "How strictly an inbound token must state what it is for. It governs the compatibility-sensitive checks: the token shape heuristic on the inbox operations (converter, docbuilder, command) and the `operation` claim. `off` - neither of them is applied. `validate` - the heuristic is applied on those operations, a token whose `operation` claim names an operation other than the one the endpoint serves is refused, and an endpoint that serves no named operation refuses a token that carries the claim. `strict` - the claim additionally becomes mandatory at the endpoints that name an operation (converter, docbuilder, command); the browser, editor-session and download endpoints share their tokens with one another and keep accepting tokens without the claim. The from-file endpoints require the claim in every mode, because they have no callers that predate it. An unknown value is treated as an invalid setting, and no integrator token is accepted. The setting does not relax the structural rules that each endpoint applies to the token payload it reads, and a token that ONLYOFFICE Docs issues to itself is always checked strictly.",
+                  "enum": ["off", "validate", "strict"],
+                  "default": "validate",
+                  "x-tenantOverride": true
+                },
+                "inbox": {
+                  "type": "object",
+                  "description": "The configuration of a token from the incoming requests.",
+                  "default": {
+                    "header": "Authorization",
+                    "prefix": "Bearer ",
+                    "inBody": false
+                  },
+                  "properties": {
+                    "header": {
+                      "type": "string",
+                      "description": "The HTTP header that will be used to send the incoming request token.",
+                      "default": "Authorization",
+                      "x-tenantOverride": true
+                    },
+                    "inBody": {
+                      "type": "boolean",
+                      "description": "Whether a token is enabled in the incoming request body or not.",
+                      "default": false,
+                      "x-tenantOverride": true
+                    },
+                    "prefix": {
+                      "type": "string",
+                      "description": "A prefix in the HTTP header that will be used to send the incoming request token.",
+                      "default": "Bearer ",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "outbox": {
+                  "type": "object",
+                  "description": "The configuration of a token from the outgoing requests.",
+                  "default": {
+                    "header": "Authorization",
+                    "prefix": "Bearer ",
+                    "algorithm": "HS256",
+                    "expires": "5m",
+                    "inBody": false,
+                    "urlExclusionRegex": ""
+                  },
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "description": "An algorithm which is used to sign the outgoing request token.",
+                      "default": "HS256",
+                      "x-tenantOverride": true
+                    },
+                    "expires": {
+                      "type": "string",
+                      "description": "A period when the outgoing request token expires.",
+                      "default": "5m",
+                      "x-tenantOverride": true
+                    },
+                    "header": {
+                      "type": "string",
+                      "description": "The HTTP header that will be used to send the outgoing request token.",
+                      "default": "Authorization",
+                      "x-tenantOverride": true
+                    },
+                    "inBody": {
+                      "type": "boolean",
+                      "description": "Whether a token is enabled in the outgoing request body or not.",
+                      "default": false,
+                      "x-tenantOverride": true
+                    },
+                    "prefix": {
+                      "type": "string",
+                      "description": "A prefix in the HTTP header that will be used to send the outgoing request token.",
+                      "default": "Bearer ",
+                      "x-tenantOverride": true
+                    },
+                    "urlExclusionRegex": {
+                      "type": "string",
+                      "description": "The regular expression that specifies URLs from which the authorization should be excluded. The empty string means that this option is disabled.",
+                      "default": "",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "session": {
+                  "type": "object",
+                  "description": "The session token configuration.",
+                  "default": {
+                    "algorithm": "HS256",
+                    "expires": "30d"
+                  },
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "description": "An algorithm which is used to sign the session token.",
+                      "default": "HS256",
+                      "x-tenantOverride": true
+                    },
+                    "expires": {
+                      "type": "string",
+                      "description": "A period when the session token expires.",
+                      "default": "30d",
+                      "x-tenantOverride": true
+                    }
+                  }
+                },
+                "verifyOptions": {
+                  "type": "object",
+                  "description": "The token verifying options.",
+                  "default": {
+                    "clockTolerance": 60
+                  },
+                  "properties": {
+                    "clockTolerance": {
+                      "type": "integer",
+                      "description": "A number of seconds which is acceptable when dealing with the clock differences among different servers.",
+                      "default": 60,
+                      "x-tenantOverride": true
+                    }
+                  }
+                }
+              },
+              "x-section-intro": "These parameters configure the token configuration."
+            },
+            "utils": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "limits_image_types_upload": {
+                  "type": "string",
+                  "description": "The supported image formats for uploading.",
+                  "default": "jpg;jpeg;jpe;jfif;jif;png;gif;bmp;svg;tiff;tif;webp;heic;heif;avif",
+                  "x-tenantOverride": true
+                },
+                "utils_common_fontdir": {
+                  "type": "string",
+                  "description": "A directory where all the fonts are stored.",
+                  "default": "null",
+                  "x-tenantOverride": true
+                },
+                "utils_fonts_search_patterns": {
+                  "type": "string",
+                  "description": "The patterns for searching font files of the corresponding extensions.",
+                  "default": "*.ttf;*.ttc;*.otf",
+                  "x-tenantOverride": true
+                },
+                "limits_document_types_upload": {
+                  "type": "string",
+                  "description": "Semicolon-separated list of document file extensions allowed for upload. Only files matching these extensions are accepted.",
+                  "default": "xlsx",
+                  "x-tenantOverride": true
+                }
+              },
+              "x-section-intro": "These parameters configure the utils configuration."
             }
-          }
+          },
+          "description": "The settings for the co-authoring editing session.",
+          "x-section-intro": "These parameters configure the settings for the Document Server services."
         }
       }
+    },
+    "externalRequest": {
+      "type": "object",
+      "description": "The external request handling and proxy configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "directIfIn": {
+          "type": "object",
+          "description": "The IP addresses that are allowed for direct requests.",
+          "properties": {
+            "allowList": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [],
+              "description": "A list of the IP addresses that are trusted for the direct requests.",
+              "x-tenantOverride": true
+            },
+            "jwtToken": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether the trusted IP addresses are in the JWT or not.",
+              "x-tenantOverride": true
+            }
+          },
+          "default": {
+            "allowList": [],
+            "jwtToken": true
+          }
+        },
+        "action": {
+          "type": "object",
+          "description": "The external request options.",
+          "properties": {
+            "allow": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether the external requests are allowed or not.",
+              "x-tenantOverride": true
+            },
+            "blockPrivateIP": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether the private IP address will be blocked or not. Destination filtering for requests sent through `proxyUrl` must be configured on the proxy. The requests permitted by `externalRequest.directIfIn` are handled separately.",
+              "x-tenantOverride": true
+            },
+            "proxyUrl": {
+              "type": "string",
+              "default": "",
+              "description": "The proxy URL.",
+              "x-tenantOverride": true
+            },
+            "proxyUser": {
+              "type": "object",
+              "description": "The proxy authentication parameters.",
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "default": "",
+                  "description": "The proxy authentication username.",
+                  "x-tenantOverride": true
+                },
+                "password": {
+                  "type": "string",
+                  "default": "",
+                  "writeOnly": true,
+                  "description": "The proxy authentication password.",
+                  "x-warning": true,
+                  "x-tenantOverride": true
+                }
+              },
+              "default": {
+                "username": "",
+                "password": ""
+              }
+            },
+            "proxyHeaders": {
+              "type": "object",
+              "default": {},
+              "description": "The proxy headers.",
+              "x-tenantOverride": true
+            }
+          },
+          "default": {
+            "allow": true,
+            "blockPrivateIP": true,
+            "proxyUrl": "",
+            "proxyUser": {
+              "username": "",
+              "password": ""
+            },
+            "proxyHeaders": {}
+          }
+        }
+      },
+      "x-section-intro": "These parameters configure the configuration of the external requests."
+    },
+    "tenants": {
+      "type": "object",
+      "description": "The multi-tenant configuration settings.",
+      "x-scope": "admin",
+      "additionalProperties": false,
+      "properties": {
+        "baseDir": {
+          "type": "string",
+          "description": "A directory that limits the files that can be accessed by **ONLYOFFICE Docs**.",
+          "x-scope": "admin",
+          "default": "",
+          "x-tenantOverride": false
+        },
+        "baseDomain": {
+          "type": "string",
+          "description": "The tenant base domain name.",
+          "x-scope": "admin",
+          "default": "",
+          "x-tenantOverride": false
+        },
+        "filenameConfig": {
+          "type": "string",
+          "default": "config.json",
+          "description": "The name of the config file in the tenant folder to override *default.json*. It is used in the multi-tenant mode\nto initialize the specific tenant settings (wopi, ipfilter, jwt secret etc.).",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
+        "filenameSecret": {
+          "type": "string",
+          "default": "secret.key",
+          "description": "The *.pem* filename where the tenant secret key is stored.",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
+        "filenameLicense": {
+          "type": "string",
+          "default": "license.lic",
+          "description": "The filename where the tenant license is stored.",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
+        "defaultTenant": {
+          "type": "string",
+          "default": "localhost",
+          "description": "The domain name of the default tenant.",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
+        "licenseRevalidateInterval": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5,
+          "description": "The minimal interval between the checks of the tenant license file state (measured in seconds). This is the check rate, not a guaranteed delay: on a network file system the actual delay also depends on the metadata cache of the mount. Set to 0 to disable the checks and rely on the cache TTL only.",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
+        "cache": {
+          "type": "object",
+          "description": "The cache properties for reading multi-tenant license and secret.",
+          "x-scope": "admin",
+          "properties": {
+            "stdTTL": {
+              "type": "integer",
+              "default": 300,
+              "description": "The TTL (time to live) for every generated cache element (measured in seconds).",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            },
+            "checkperiod": {
+              "type": "integer",
+              "default": 60,
+              "description": "The period used for the automatic delete check interval (measured in seconds).",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            },
+            "useClones": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether the cached variables will be cloned or not. If `true`, a copy of the cached variable will be created. If `false`, only the reference will be saved.",
+              "x-scope": "admin",
+              "x-tenantOverride": false
+            }
+          },
+          "default": {
+            "stdTTL": 300,
+            "checkperiod": 60,
+            "useClones": false
+          }
+        }
+      },
+      "x-section-intro": "These parameters configure the tenants properties for working in the multi-tenant mode."
+    },
+    "license": {
+      "type": "object",
+      "description": "The license configuration and validation settings.",
+      "x-scope": "admin",
+      "additionalProperties": false,
+      "properties": {
+        "license_file": {
+          "type": "string",
+          "default": "",
+          "description": "A path to the license file.",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
+        "warning_limit_percents": {
+          "type": "integer",
+          "default": 70,
+          "description": "A percent range of the [connections and connections_view](https://api.onlyoffice.com/docs/docs-api/additional-api/command-service/license/)\nlimitations, exceeding which a license limit warning appears in logs.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "packageType": {
+          "type": "integer",
+          "default": 0,
+          "description": "The license package type: 2 - Developer Edition.",
+          "x-scope": "admin",
+          "x-note": "This parameter is set at the time of version build. You do not have to manually configure it.",
+          "x-tenantOverride": true
+        },
+        "warning_license_expiration": {
+          "type": "string",
+          "default": "30d",
+          "description": "The time before the license expires when a warning message is sent.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        }
+      },
+      "x-section-intro": "These parameters configure the license configuration."
+    },
+    "wopi": {
+      "type": "object",
+      "description": "The WOPI (Web Application Open Platform Interface) configuration.",
+      "x-scope": ["admin", "tenant"],
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether WOPI is enabled or not.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "The WOPI host (host name or IP address).",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "htmlTemplate": {
+          "type": "string",
+          "default": "../../web-apps/apps/api/wopi",
+          "description": "A path to the WOPI HTML template.",
+          "x-scope": "admin",
+          "x-tenantOverride": false
+        },
+        "wopiZone": {
+          "type": "string",
+          "enum": ["external-https", "external-http", "internal-https", "internal-http"],
+          "default": "external-http",
+          "description": "The discovery zone advertised by the document server. For SharePoint integrations, this value should match the zone configured with Set-SPWOPIZone.",
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
+        },
+        "requireIpFilterRule": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether every WOPI host must be named by a `services.CoAuthoring.ipfilter.rules` entry before the server will contact it. The catch-all `*` rule does not count, because it names nothing. When the value is false, the server may also contact a host that no rule names. The remaining checks of the WOPI destination apply either way.",
+          "x-scope": ["admin"],
+          "x-tenantOverride": false
+        },
+        "sendAuthorizationHeader": {
+          "type": "boolean",
+          "default": false,
+          "description": "The `Authorization: Bearer <token>` header added to WOPI requests. Optional by specification, but may be needed for older SharePoint integrations.",
+          "x-scope": ["admin", "tenant"],
+          "x-tenantOverride": true
+        },
+        "favIconUrlWord": {
+          "type": "string",
+          "default": "/web-apps/apps/documenteditor/main/resources/img/favicon.ico",
+          "description": "A path to the favicon for the document editor.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "favIconUrlCell": {
+          "type": "string",
+          "default": "/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico",
+          "description": "A path to the favicon for the spreadsheet editor.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "favIconUrlSlide": {
+          "type": "string",
+          "default": "/web-apps/apps/presentationeditor/main/resources/img/favicon.ico",
+          "description": "A path to the favicon for the presentation editor.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "favIconUrlPdf": {
+          "type": "string",
+          "default": "/web-apps/apps/pdfeditor/main/resources/img/favicon.ico",
+          "description": "A path to the favicon for the PDF editor.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "favIconUrlDiagram": {
+          "type": "string",
+          "default": "/web-apps/apps/visioeditor/main/resources/img/favicon.ico",
+          "description": "A path to the favicon for the diagram editor.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "fileInfoBlockList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["FileUrl"],
+          "description": "A list of WOPI file information parameters that are blocked when sending this array to the browser. However, these parameters are available on the server.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "pdfView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be viewed in the PDF editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "pdfEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be edited in the PDF editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "forms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The form file types.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "wordView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be viewed in the document editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "wordEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be edited in the document editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "cellView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be viewed in the spreadsheet editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "cellEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be edited in the spreadsheet editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "slideView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be viewed in the presentation editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "slideEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be edited in the presentation editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "diagramView": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be viewed in the diagram editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "diagramEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "The file types that can be edited in the diagram editor.",
+          "x-scope": "admin",
+          "x-note": "The value of this parameter is stored in the *onlyoffice-docs-formats.json* file.",
+          "x-tenantOverride": true
+        },
+        "publicKey": {
+          "type": "string",
+          "default": "",
+          "description": "The public key that the integrator uses to check the private key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
+        },
+        "modulus": {
+          "type": "string",
+          "default": "",
+          "description": "The RSA modulus in the Base64-encoded format that is used to retrieve the public key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
+        },
+        "exponent": {
+          "type": "integer",
+          "default": 65537,
+          "description": "The RSA public exponent as an integer. The server Base64-encodes it in discovery.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "privateKey": {
+          "type": "string",
+          "default": "",
+          "writeOnly": true,
+          "description": "The private key that signs the Document Server request.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
+        },
+        "publicKeyOld": {
+          "type": "string",
+          "default": "",
+          "description": "The old public key that the integrator used to check the private key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
+        },
+        "modulusOld": {
+          "type": "string",
+          "default": "",
+          "description": "The old RSA modulus in the Base64-encoded format that was used to retrieve the public key.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
+        },
+        "exponentOld": {
+          "type": "integer",
+          "default": 65537,
+          "description": "The previous RSA public exponent as an integer. The server Base64-encodes it in discovery.",
+          "x-scope": "admin",
+          "x-tenantOverride": true
+        },
+        "privateKeyOld": {
+          "type": "string",
+          "default": "",
+          "writeOnly": true,
+          "description": "The old private key that signed the Document Server request.",
+          "x-scope": "admin",
+          "x-note": "Please note that starting from version 8.3, the values of this parameter in the *default.json* and *local.json* files are different.",
+          "x-tenantOverride": true
+        },
+        "refreshLockInterval": {
+          "type": "string",
+          "default": "10m",
+          "description": "The interval time, as a duration string, for refreshing the lock on a file by resetting its automatic expiration timer to 30 minutes.",
+          "x-scope": "admin",
+          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
+          "x-tenantOverride": false
+        },
+        "dummy": {
+          "type": "object",
+          "description": "The properties of dummy handlers for stress testing.",
+          "x-scope": "admin",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether the dummy handlers are enabled or not.",
+              "x-tenantOverride": false
+            },
+            "sampleFilePath": {
+              "type": "string",
+              "default": "",
+              "description": "The dummy path to the sample file.",
+              "x-tenantOverride": true
+            }
+          },
+          "default": {
+            "enable": false,
+            "sampleFilePath": ""
+          }
+        }
+      },
+      "x-section-intro": "These parameters configure the WOPI protocol configuration."
     },
     "FileConverter": {
       "type": "object",
@@ -216,63 +3652,187 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "maxDownloadBytes": {"type": "integer", "minimum": 0, "maximum": 10485760000, "x-scope": ["admin", "tenant"]},
+            "maxDownloadBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10485760000,
+              "x-scope": ["admin", "tenant"],
+              "description": "A maximum size of the file being requested (measured in bytes).",
+              "default": 104857600,
+              "x-tenantOverride": true
+            },
             "signingKeyStorePath": {
               "type": "string",
-              "description": "Legacy. Path to signing certificate file. Use signing.keyStorePath instead.",
-              "x-scope": "admin"
+              "description": "Legacy. The path to the signing certificate file. Use `signing.keyStorePath` instead.",
+              "x-scope": "admin",
+              "default": "",
+              "x-pinned": true,
+              "x-tenantOverride": true
             },
             "signing": {
               "type": "object",
               "additionalProperties": false,
               "x-scope": "admin",
-              "description": "Signing settings. keyStorePath takes priority over legacy signingKeyStorePath. Cloud provider detected by awsKms.keyId.",
+              "description": "The signing settings. `keyStorePath` takes priority over legacy `signingKeyStorePath`. Cloud provider is detected by `awsKms.keyId`.",
               "properties": {
                 "keyStorePath": {
                   "type": "string",
-                  "description": "Path to signing certificate. P12/PFX for local x2t, PEM chain for cloud signing."
+                  "description": "The path to the signing certificate. P12/PFX for local x2t, PEM chain for cloud signing.",
+                  "x-pinned": true,
+                  "x-tenantOverride": true
                 },
                 "meta": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "Signature metadata fields embedded in the PDF digital signature.",
+                  "description": "The signature metadata fields embedded in the PDF digital signature.",
                   "properties": {
-                    "reason": {"type": "string", "description": "Purpose of signing (e.g. Approved)."},
-                    "name": {"type": "string", "description": "Signer name."},
-                    "location": {"type": "string", "description": "Signing location."},
-                    "contactInfo": {"type": "string", "description": "Contact details (URL or email)."}
-                  }
+                    "reason": {
+                      "type": "string",
+                      "description": "The purpose of signing (e.g. Approved).",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "The signer name.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "location": {
+                      "type": "string",
+                      "description": "The signing location.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "contactInfo": {
+                      "type": "string",
+                      "description": "The contact details (URL or email).",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "x-pinned": true
                 },
                 "awsKms": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "AWS KMS (or compatible) settings. Set keyId to enable.",
+                  "description": "The AWS KMS (or compatible) settings. Set `keyId` to enable.",
                   "properties": {
-                    "endpoint": {"type": "string", "description": "KMS endpoint URL. Allows alternative KMS-compatible services."},
-                    "keyId": {"type": "string", "description": "KMS key ID or ARN. If set, AWS KMS signing is active."},
-                    "accessKeyId": {"type": "string", "description": "AWS access key. Empty = default credential chain."},
-                    "secretAccessKey": {"type": "string", "description": "AWS secret access key."}
-                  }
+                    "endpoint": {
+                      "type": "string",
+                      "description": "The KMS endpoint URL. Allows alternative KMS-compatible services.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "keyId": {
+                      "type": "string",
+                      "description": "The KMS key ID or ARN. If set, AWS KMS signing is active.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "accessKeyId": {
+                      "type": "string",
+                      "description": "The AWS access key. Leave empty to use the default credential chain.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "secretAccessKey": {
+                      "type": "string",
+                      "description": "The AWS secret access key.",
+                      "x-warning": true,
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "x-pinned": true
                 },
                 "csc": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "CSC API v2 (ETSI TS 119 432) settings. Set baseUrl to enable.",
+                  "description": "The CSC API v2 (ETSI TS 119 432) settings. Set `baseUrl` to enable.",
                   "properties": {
-                    "baseUrl": {"type": "string", "description": "CSC API base URL. If set, CSC signing is active."},
-                    "tokenUrl": {"type": "string", "description": "OAuth2 token endpoint."},
-                    "clientId": {"type": "string", "description": "OAuth2 client ID."},
-                    "clientSecret": {"type": "string", "description": "OAuth2 client secret."},
-                    "grantType": {"type": "string", "description": "Optional. OAuth2 grant type: '' (auto-detect), 'password', or 'client_credentials'. Empty selects based on presence of username/password."},
-                    "clientAuth": {"type": "string", "description": "Optional. How client authenticates to token endpoint: '' (body), 'basic', 'body', or 'both'."},
-                    "tokenBodyFormat": {"type": "string", "description": "Optional. Token request body format: 'form' (default, RFC 6749) or 'json'."},
-                    "username": {"type": "string", "description": "Optional. Username for password grant type."},
-                    "password": {"type": "string", "description": "Optional. Password for password grant type."},
-                    "credentialId": {"type": "string", "description": "Optional. Signing credential ID. Auto-discovered via credentials/list when empty."},
-                    "clientData": {"type": "string", "description": "Optional. Provider-specific clientData for credentials/list (e.g. eSeal credential type)."},
-                    "scope": {"type": "string", "description": "Optional. OAuth2 scope (e.g. 'service')."},
-                    "audience": {"type": "string", "description": "Optional. OAuth2 audience parameter."}
-                  }
+                    "baseUrl": {
+                      "type": "string",
+                      "description": "The CSC API base URL. If set, CSC signing is active.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "tokenUrl": {
+                      "type": "string",
+                      "description": "The OAuth2 token endpoint.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "clientId": {
+                      "type": "string",
+                      "description": "The OAuth2 client ID.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "clientSecret": {
+                      "type": "string",
+                      "description": "The OAuth2 client secret.",
+                      "x-warning": true,
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "grantType": {
+                      "type": "string",
+                      "description": "Optional. The OAuth2 grant type: `''` (auto-detect), `'password'`, or `'client_credentials'`. Empty selects based on presence of username/password.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "clientAuth": {
+                      "type": "string",
+                      "description": "Optional. How the client authenticates to the token endpoint: `''` (body), `'basic'`, `'body'`, or `'both'`.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "tokenBodyFormat": {
+                      "type": "string",
+                      "description": "Optional. The token request body format: `'form'` (default, RFC 6749) or `'json'`.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "username": {
+                      "type": "string",
+                      "description": "Optional. The username for the password grant type.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "password": {
+                      "type": "string",
+                      "description": "Optional. The password for the password grant type.",
+                      "x-warning": true,
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "credentialId": {
+                      "type": "string",
+                      "description": "Optional. The signing credential ID. Auto-discovered via credentials/list when empty.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "clientData": {
+                      "type": "string",
+                      "description": "Optional. The provider-specific `clientData` for credentials/list (e.g. eSeal credential type).",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "scope": {
+                      "type": "string",
+                      "description": "Optional. The OAuth2 scope (e.g. `'service'`).",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    },
+                    "audience": {
+                      "type": "string",
+                      "description": "Optional. The OAuth2 audience parameter.",
+                      "x-pinned": true,
+                      "x-tenantOverride": true
+                    }
+                  },
+                  "x-pinned": true
                 }
               }
             },
@@ -287,11 +3847,16 @@
                   "properties": {
                     "SIGNING_KEYSTORE_PASSPHRASE": {
                       "type": "string",
-                      "description": "Passphrase for the PKCS#12 keystore file"
+                      "description": "The passphrase for the PKCS#12 keystore file.",
+                      "x-warning": true,
+                      "x-pinned": true
                     }
                   }
                 }
-              }
+              },
+              "description": "The parameters that can be passed directly to the [node.js child_process.spawn](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options) library (only for running x2t).",
+              "default": {},
+              "x-tenantOverride": true
             },
             "inputLimits": {
               "type": "array",
@@ -303,7 +3868,7 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "description": "File types this limit applies to (e.g., 'docx;dotx;docm;dotm')"
+                    "description": "The file types this limit applies to (e.g., `docx;dotx;docm;dotm`)."
                   },
                   "zip": {
                     "type": "object",
@@ -311,214 +3876,265 @@
                     "properties": {
                       "uncompressed": {
                         "type": "string",
-                        "description": "Maximum uncompressed size (e.g., '50MB', '300MB')"
+                        "description": "The maximum uncompressed size (e.g., `50MB`, `300MB`)."
                       },
                       "template": {
                         "type": "string",
-                        "description": "Template pattern for file matching (e.g., '*.xml')"
+                        "description": "The template pattern for file matching (e.g., `*.xml`)."
                       }
                     }
                   }
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "wopi": {
-      "type": "object",
-      "additionalProperties": false,
-      "x-scope": ["admin", "tenant"],
-      "properties": {
-        "enable": {"type": "boolean"},
-        "wopiZone": {
-          "type": "string",
-          "enum": ["external-https", "external-http", "internal-https", "internal-http"],
-          "description": "Specifies the discovery zone advertised by the document server. For SharePoint integrations, this value should match the zone configured with Set-SPWOPIZone.",
-          "x-scope": ["admin", "tenant"]
-        },
-        "sendAuthorizationHeader": {
-          "type": "boolean",
-          "description": "Adds the Authorization: Bearer <token> header to WOPI requests. Optional by specification, but may be needed for older SharePoint integrations.",
-          "x-scope": ["admin", "tenant"]
-        },
-        "publicKey": {"type": "string"},
-        "refreshLockInterval": {
-          "type": "string",
-          "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-          "description": "Refresh lock interval in time format (e.g., '10m', '1h', '30s')"
-        }
-      }
-    },
-    "email": {
-      "type": "object",
-      "additionalProperties": false,
-      "x-scope": ["admin", "tenant"],
-      "properties": {
-        "smtpServerConfiguration": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "host": {"type": "string"},
-            "port": {"type": "integer", "minimum": 1, "maximum": 65535},
-            "auth": {
-              "type": "object",
-              "additionalProperties": false,
+              },
+              "description": "The limits for input files.",
+              "default": [
+                {
+                  "type": "docx;dotx;docm;dotm",
+                  "zip": {
+                    "uncompressed": "50MB",
+                    "template": "*.xml"
+                  }
+                },
+                {
+                  "type": "xlsx;xltx;xlsm;xltm",
+                  "zip": {
+                    "uncompressed": "300MB",
+                    "template": "*.xml"
+                  }
+                },
+                {
+                  "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+                  "zip": {
+                    "uncompressed": "50MB",
+                    "template": "*.xml"
+                  }
+                },
+                {
+                  "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
+                  "zip": {
+                    "uncompressed": "50MB",
+                    "template": "*.xml"
+                  }
+                }
+              ],
               "properties": {
-                "user": {"type": "string"},
-                "pass": {"type": "string"}
-              }
-            }
-          }
-        },
-        "contactDefaults": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "from": {"type": "string", "format": "email"},
-            "to": {"type": "string", "format": "email"}
-          }
-        }
-      }
-    },
-    "log": {
-      "type": "object",
-      "additionalProperties": true,
-      "x-scope": "admin",
-      "properties": {
-        "options": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "categories": {
-              "type": "object",
-              "additionalProperties": true,
-              "properties": {
-                "default": {
+                "type": {
+                  "type": "string",
+                  "description": "The OOXML file types for which the limits are specified (text documents/spreadsheets/presentations/diagrams). This does not include other objects, like images."
+                },
+                "zip": {
                   "type": "object",
-                  "additionalProperties": true,
+                  "description": "The zip archive properties.",
                   "properties": {
-                    "level": {
+                    "template": {
                       "type": "string",
-                      "enum": ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"],
-                      "description": "Logging level for the application"
+                      "description": "The name template for files which sizes are counted.",
+                      "default": "*.xml"
+                    },
+                    "uncompressed": {
+                      "type": "string",
+                      "description": "The maximum total uncompressed size of the matching files in the archive."
                     }
                   }
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "notification": {
-      "type": "object",
-      "additionalProperties": false,
-      "x-scope": ["admin", "tenant"],
-      "properties": {
-        "rules": {
-          "type": "object",
-          "additionalProperties": false,
-          "x-scope": ["admin", "tenant"],
-          "properties": {
-            "licenseExpirationWarning": {
+              },
+              "x-tenantOverride": true
+            },
+            "args": {
+              "type": "string",
+              "x-scope": "admin",
+              "description": "The additional parameters for running x2t.",
+              "default": "",
+              "x-tenantOverride": true
+            },
+            "docbuilderPath": {
+              "type": "string",
+              "x-scope": "admin",
+              "description": "A path to the Document Builder application.",
+              "default": "null",
+              "x-tenantOverride": true
+            },
+            "downloadAttemptDelay": {
+              "type": "integer",
+              "description": "The attempt delay to download the converted file.",
+              "default": 1000,
+              "x-tenantOverride": true
+            },
+            "downloadAttemptMaxCount": {
+              "type": "integer",
+              "description": "A maximum number of attempts to download the converted file.",
+              "default": 3,
+              "x-tenantOverride": true
+            },
+            "downloadTimeout": {
               "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
+              "description": "The timeout properties for downloading the converted file.",
+              "default": {
+                "connectionAndInactivity": "2m",
+                "wholeCycle": "2m"
+              },
               "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
-                  "properties": {
-                    "repeatInterval": {
-                      "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
-                    }
-                  }
+                "connectionAndInactivity": {
+                  "type": "string",
+                  "description": "The request timeout as a duration string. `wholeCycle` limits the whole request cycle.",
+                  "default": "2m",
+                  "x-tenantOverride": true
+                },
+                "wholeCycle": {
+                  "type": "string",
+                  "description": "The whole request cycle timeout.",
+                  "default": "2m",
+                  "x-tenantOverride": true
                 }
               }
             },
-            "licenseExpirationError": {
-              "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
-              "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
-                  "properties": {
-                    "repeatInterval": {
-                      "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
-                    }
-                  }
-                }
-              }
+            "errorfiles": {
+              "type": "string",
+              "description": "A path to the error files.",
+              "default": "",
+              "x-tenantOverride": true
             },
-            "licenseLimitEdit": {
-              "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
-              "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
-                  "properties": {
-                    "repeatInterval": {
-                      "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
-                    }
-                  }
-                }
-              }
+            "fontDir": {
+              "type": "string",
+              "x-scope": "admin",
+              "description": "A path to the folder with fonts.",
+              "default": "null",
+              "x-tenantOverride": true
             },
-            "licenseLimitLiveViewer": {
-              "type": "object",
-              "additionalProperties": false,
-              "x-scope": ["admin", "tenant"],
-              "properties": {
-                "enable": {"type": "boolean", "x-scope": ["admin", "tenant"]},
-                "policies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "x-scope": ["admin", "tenant"],
-                  "properties": {
-                    "repeatInterval": {
-                      "type": "string",
-                      "pattern": "^(\\d+[smhd]|\\d+\\s*(second|minute|hour|day)s?)$",
-                      "description": "Repeat interval in time format (e.g., '1d', '1h', '30m')",
-                      "x-scope": ["admin", "tenant"]
-                    }
-                  }
-                }
-              }
+            "maxprocesscount": {
+              "type": "integer",
+              "description": "A maximum number of conversion processes which can be active at one time.",
+              "default": 1,
+              "x-tenantOverride": false
+            },
+            "maxRedeliveredCount": {
+              "type": "integer",
+              "description": "A maximum number of message re-deliveries.",
+              "default": 2,
+              "x-tenantOverride": true
+            },
+            "presentationThemesDir": {
+              "type": "string",
+              "description": "A path to the folder with the presentation themes.",
+              "default": "null",
+              "x-tenantOverride": true
+            },
+            "streamWriterBufferSize": {
+              "type": "integer",
+              "description": "The StreamWriter buffer size.",
+              "default": 8388608,
+              "x-tenantOverride": true
+            },
+            "x2tPath": {
+              "type": "string",
+              "x-scope": "admin",
+              "description": "A path to the x2t file converter.",
+              "default": "null",
+              "x-tenantOverride": true
             }
+          },
+          "description": "The converter properties.",
+          "default": {
+            "maxDownloadBytes": 104857600,
+            "downloadTimeout": {
+              "connectionAndInactivity": "2m",
+              "wholeCycle": "2m"
+            },
+            "downloadAttemptMaxCount": 3,
+            "downloadAttemptDelay": 1000,
+            "maxprocesscount": 1,
+            "fontDir": "null",
+            "presentationThemesDir": "null",
+            "x2tPath": "null",
+            "docbuilderPath": "null",
+            "signingKeyStorePath": "",
+            "signing": {
+              "keyStorePath": "",
+              "meta": {
+                "reason": "",
+                "name": "",
+                "location": "",
+                "contactInfo": ""
+              },
+              "awsKms": {
+                "endpoint": "",
+                "keyId": "",
+                "accessKeyId": "",
+                "secretAccessKey": ""
+              },
+              "csc": {
+                "baseUrl": "",
+                "tokenUrl": "",
+                "clientId": "",
+                "clientSecret": "",
+                "grantType": "",
+                "clientAuth": "",
+                "tokenBodyFormat": "",
+                "username": "",
+                "password": "",
+                "credentialId": "",
+                "clientData": "",
+                "scope": "service",
+                "audience": ""
+              }
+            },
+            "args": "",
+            "spawnOptions": {},
+            "errorfiles": "",
+            "streamWriterBufferSize": 8388608,
+            "maxRedeliveredCount": 2,
+            "inputLimits": [
+              {
+                "type": "docx;dotx;docm;dotm",
+                "zip": {
+                  "uncompressed": "50MB",
+                  "template": "*.xml"
+                }
+              },
+              {
+                "type": "xlsx;xltx;xlsm;xltm",
+                "zip": {
+                  "uncompressed": "300MB",
+                  "template": "*.xml"
+                }
+              },
+              {
+                "type": "pptx;ppsx;potx;pptm;ppsm;potm",
+                "zip": {
+                  "uncompressed": "50MB",
+                  "template": "*.xml"
+                }
+              },
+              {
+                "type": "vsdx;vstx;vssx;vsdm;vstm;vssm",
+                "zip": {
+                  "uncompressed": "50MB",
+                  "template": "*.xml"
+                }
+              }
+            ]
           }
         }
-      }
+      },
+      "x-section-intro": "These parameters configure the file converter configuration."
     },
     "adminPanel": {
       "type": "object",
       "additionalProperties": false,
       "x-scope": ["admin", "tenant"],
       "properties": {
+        "host": {
+          "type": "string",
+          "description": "The bind address of the HTTP listener. An empty value listens on all interfaces.",
+          "default": "",
+          "x-scope": [],
+          "x-tenantOverride": false
+        },
         "passwordValidation": {
           "type": "object",
           "x-scope": ["admin", "tenant"],
-          "description": "Password validation requirements using custom format types",
+          "description": "The password validation requirements.",
+          "x-doc-hidden": true,
           "properties": {
             "minLength": {
               "$ref": "#/$defs/passlength",
@@ -546,8 +4162,21 @@
               "x-scope": ["admin", "tenant"]
             }
           }
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "A password hash used to protect a password with the PBKDF2-SHA256 algorithm.",
+          "x-note": "The value of this parameter is stored in the *runtime.json* file. E.g., for the Linux version, this file can be found here: `/var/www/onlyoffice/Data/runtime.json`",
+          "default": ""
+        },
+        "port": {
+          "type": "integer",
+          "description": "The port on which the Admin Panel service is running.",
+          "default": 9000,
+          "x-tenantOverride": true
         }
-      }
+      },
+      "x-section-intro": "These parameters configure the Admin Panel properties. For more details on using Admin Panel, you can refer to [this article](https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx)."
     }
   }
 }

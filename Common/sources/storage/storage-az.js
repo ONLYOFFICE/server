@@ -1,3 +1,35 @@
+/*
+ * (c) Copyright Ascensio System SIA 2010-2024
+ *
+ * This program is a free software product. You can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License (AGPL)
+ * version 3 as published by the Free Software Foundation. In accordance with
+ * Section 7(a) of the GNU AGPL its Section 15 shall be amended to the effect
+ * that Ascensio System SIA expressly excludes the warranty of non-infringement
+ * of any third-party rights.
+ *
+ * This program is distributed WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
+ * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
+ *
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
+ * street, Riga, Latvia, EU, LV-1050.
+ *
+ * The  interactive user interfaces in modified source and object code versions
+ * of the Program must display Appropriate Legal Notices, as required under
+ * Section 5 of the GNU AGPL version 3.
+ *
+ * Pursuant to Section 7(b) of the License you must retain the original Product
+ * logo when distributing the program. Pursuant to Section 7(e) we decline to
+ * grant you any rights under trademark law for use of our trademarks.
+ *
+ * All the Product's GUI elements, including illustrations and icon sets, as
+ * well as technical writing content are licensed under the terms of the
+ * Creative Commons Attribution-ShareAlike 4.0 International. See the License
+ * terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ */
+
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -7,6 +39,7 @@ const config = require('config');
 const utils = require('../utils');
 const ms = require('ms');
 const commonDefines = require('../commondefines');
+const storageChecksum = require('./storageChecksum');
 
 const cfgExpSessionAbsolute = ms(config.get('services.CoAuthoring.expire.sessionabsolute'));
 const cfgCacheStorage = config.get('storage');
@@ -109,30 +142,32 @@ async function deleteObjectsHelp(storageCfg, aKeys) {
   );
 }
 
-async function headObject(storageCfg, strPath) {
+async function headObject(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const properties = await blobClient.getProperties();
   return {ContentLength: properties.contentLength};
 }
 
-async function getObject(storageCfg, strPath) {
+async function getObject(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const options = applyCommandOptions({}, storageCfg, 'download');
   const response = await blobClient.download(options);
   return await utils.stream2Buffer(response.readableStreamBody);
 }
 
-async function createReadStream(storageCfg, strPath) {
+async function createReadStream(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const options = applyCommandOptions({}, storageCfg, 'download');
   const response = await blobClient.download(options);
   return {
     contentLength: response.contentLength,
-    readStream: response.readableStreamBody
+    readStream: response.readableStreamBody,
+    // Forward the blob's stored Content-MD5 when present; a full read exposes the whole-blob MD5 at no extra cost.
+    checksum: storageChecksum.extractAzChecksum(response)
   };
 }
 
-async function putObject(storageCfg, strPath, buffer, _contentLength) {
+async function putObject(_ctx, storageCfg, strPath, buffer, _contentLength) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
 
   const baseOptions = {
@@ -152,7 +187,7 @@ async function putObject(storageCfg, strPath, buffer, _contentLength) {
   }
 }
 
-async function uploadObject(storageCfg, strPath, filePath) {
+async function uploadObject(_ctx, storageCfg, strPath, filePath) {
   const blockBlobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const uploadStream = fs.createReadStream(filePath);
 
@@ -167,7 +202,7 @@ async function uploadObject(storageCfg, strPath, filePath) {
   await blockBlobClient.uploadStream(uploadStream, undefined, undefined, finalOptions);
 }
 
-async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
+async function copyObject(_ctx, storageCfgSrc, storageCfgDst, sourceKey, destinationKey) {
   const sourceBlobClient = getBlobClient(storageCfgSrc, getFilePath(storageCfgSrc, sourceKey));
   const destBlobClient = getBlobClient(storageCfgDst, getFilePath(storageCfgDst, destinationKey));
   const sasToken = generateBlobSASQueryParameters(
@@ -185,25 +220,25 @@ async function copyObject(storageCfgSrc, storageCfgDst, sourceKey, destinationKe
   await destBlobClient.syncCopyFromURL(`${sourceBlobClient.url}?${sasToken}`, copyOptions);
 }
 
-async function listObjects(storageCfg, strPath) {
+async function listObjects(_ctx, storageCfg, strPath) {
   return await listObjectsExec(storageCfg, strPath);
 }
 
-async function deleteObject(storageCfg, strPath) {
+async function deleteObject(_ctx, storageCfg, strPath) {
   const blobClient = getBlobClient(storageCfg, getFilePath(storageCfg, strPath));
   const options = applyCommandOptions({}, storageCfg, 'deleteBlob');
   await blobClient.delete(options);
 }
 
 async function deleteObjects(storageCfg, strPaths) {
-  const aKeys = strPaths.map(path => ({Key: getFilePath(storageCfg, path)}));
+  const aKeys = strPaths.map(p => ({Key: getFilePath(storageCfg, p)}));
   for (let i = 0; i < aKeys.length; i += MAX_DELETE_OBJECTS) {
     await deleteObjectsHelp(storageCfg, aKeys.slice(i, i + MAX_DELETE_OBJECTS));
   }
 }
 
-async function deletePath(storageCfg, strPath) {
-  const list = await listObjects(storageCfg, strPath);
+async function deletePath(_ctx, storageCfg, strPath) {
+  const list = await listObjectsExec(storageCfg, strPath);
   await deleteObjects(storageCfg, list);
 }
 

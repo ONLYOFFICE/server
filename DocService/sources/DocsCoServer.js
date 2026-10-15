@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 /*
  -------------------------------------------------- --view-mode----------------------------------------------------- ------------
  * 1) For the view mode, we update the page (without a quick transition) so that the user is not considered editable and does not
@@ -82,7 +81,6 @@ const crypto = require('crypto');
 const pathModule = require('path');
 const {isDeepStrictEqual} = require('util');
 const co = require('co');
-const jwt = require('jsonwebtoken');
 const ms = require('ms');
 const bytes = require('bytes');
 const storage = require('./../../Common/sources/storage/storage-base');
@@ -96,6 +94,7 @@ const sqlBase = require('./databaseConnectors/baseConnector');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
 const taskResult = require('./taskresult');
+const documentRecovery = require('./documentRecovery');
 const gc = require('./gc');
 const shutdown = require('./shutdown');
 const pubsubService = require('./pubsubRabbitMQ');
@@ -107,16 +106,16 @@ const runtimeProfile = require('./../../Common/sources/runtime/profile');
 const memoryGuard = require('./../../Common/sources/runtime/memoryGuard');
 const {notificationTypes, ...notificationService} = require('../../Common/sources/notificationService');
 const aiProxyHandler = require('./ai/aiProxyHandler');
+const jwtService = require('./jwtService');
+const {signToken, checkJwt, checkJwtForConnection, checkJwtHeader} = jwtService;
 
-const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
-const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
-const editorDataStorage = require('./' + cfgEditorDataStorage);
-const editorStatStorage = require('./' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const {editorDataStorage, editorStatStorage} = require('./editorDataStorage');
 const util = require('util');
 
 const cfgEditSingleton = config.get('services.CoAuthoring.server.edit_singleton');
 const cfgEditor = config.get('services.CoAuthoring.editor');
 const cfgCallbackRequestTimeout = config.get('services.CoAuthoring.server.callbackRequestTimeout');
+const cfgAiApiAllowBrowserProxy = config.get('aiSettings.allowBrowserProxy');
 //The waiting time to document assembly when all out(not 0 in case of F5 in the browser)
 const cfgAscSaveTimeOutDelay = config.get('services.CoAuthoring.server.savetimeoutdelay');
 
@@ -134,7 +133,6 @@ const cfgTokenSessionAlgorithm = config.get('services.CoAuthoring.token.session.
 const cfgTokenSessionExpires = config.get('services.CoAuthoring.token.session.expires');
 const cfgTokenInboxHeader = config.get('services.CoAuthoring.token.inbox.header');
 const cfgTokenInboxPrefix = config.get('services.CoAuthoring.token.inbox.prefix');
-const cfgTokenVerifyOptions = config.util.cloneDeep(config.get('services.CoAuthoring.token.verifyOptions'));
 const cfgForceSaveEnable = config.get('services.CoAuthoring.autoAssembly.enable');
 const cfgForceSaveInterval = config.get('services.CoAuthoring.autoAssembly.interval');
 const cfgQueueRetentionPeriod = config.get('queue.retentionPeriod');
@@ -181,10 +179,12 @@ let pubsub;
 let queue;
 let shutdownFlag = false;
 let preStopFlag = false;
+let reloadLicense = null;
 const expDocumentsStep = gc.getCronStep(cfgExpDocumentsCron);
 
 const MIN_SAVE_EXPIRATION = 60000;
-const SHARD_ID = crypto.randomBytes(16).toString('base64'); //16 as guid
+// replica/shard id from env; random fallback keeps it always set and unique per process
+const SHARD_ID = process.env.REPLICA_ID || crypto.randomUUID();
 
 const PRECISION = [
   {name: 'hour', val: ms('1h')},
@@ -462,35 +462,123 @@ function updatePresenceCounters(ctx, conn, val) {
       aggregationCtx.init(tenantManager.getDefautTenant(), ctx.docId, ctx.userId);
       //yield ctx.initTenantCache(); //no need.only global config
     }
-    if (utils.isLiveViewer(conn)) {
+    const mode = utils.getConnectionCountMode(conn);
+    if ('liveview' === mode) {
       yield editorStat.incrLiveViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
         yield editorStat.incrLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
       }
-      if (clientStatsD) {
-        const countLiveView = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
-        clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-      }
-    } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+    } else if ('view' === mode) {
       yield editorStat.incrViewerConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
         yield editorStat.incrViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
-      }
-      if (clientStatsD) {
-        const countView = yield editorStat.getViewerConnectionsCount(ctx, connections);
-        clientStatsD.gauge('expireDoc.connections.view', countView);
       }
     } else {
       yield editorStat.incrEditorConnectionsCountByShard(ctx, SHARD_ID, val);
       if (aggregationCtx) {
         yield editorStat.incrEditorConnectionsCountByShard(aggregationCtx, SHARD_ID, val);
       }
-      if (clientStatsD) {
-        const countEditors = yield editorStat.getEditorConnectionsCount(ctx, connections);
-        clientStatsD.gauge('expireDoc.connections.edit', countEditors);
-      }
     }
+    scheduleLegacyConnectionGauge(ctx.tenant, mode);
+    scheduleLocalConnectionGauges();
   });
+}
+// legacy gauges report the editorStat scope: local process in memory mode, shared shard aggregate in redis mode
+async function emitLegacyConnectionGauges(ctx, statsDClient, editorStatSrc, visibleConnections) {
+  if (!statsDClient) {
+    return;
+  }
+  const countEdit = await editorStatSrc.getEditorConnectionsCount(ctx, visibleConnections);
+  statsDClient.gauge('expireDoc.connections.edit', countEdit);
+  const countLiveView = await editorStatSrc.getLiveViewerConnectionsCount(ctx, visibleConnections);
+  statsDClient.gauge('expireDoc.connections.liveview', countLiveView);
+  const countView = await editorStatSrc.getViewerConnectionsCount(ctx, visibleConnections);
+  statsDClient.gauge('expireDoc.connections.view', countView);
+}
+function buildReplicaTags(replicaId) {
+  if (!replicaId) {
+    return undefined;
+  }
+  // DogStatsD tag values must not contain ',', ':', '|' or '#'
+  const safe = String(replicaId).replace(/[^A-Za-z0-9_.-]/g, '_');
+  return ['replica:' + safe];
+}
+const replicaTags = buildReplicaTags(SHARD_ID);
+// per-replica gauge: one name, mode and replica as labels, counts from this process
+function emitLocalConnectionGauges(statsDClient, localCounts, instanceTags) {
+  if (!statsDClient) {
+    return;
+  }
+  const base = instanceTags || [];
+  for (const mode of ['edit', 'liveview', 'view']) {
+    statsDClient.gauge('coauth.connections', localCounts[mode], undefined, [...base, 'mode:' + mode]);
+  }
+}
+// a gauge only needs its last value per statsd flush window, so coalesce the connect/disconnect burst
+const GAUGES_THROTTLE_MS = 1000;
+const gaugesTimers = new Map();
+// run fn at most once per key per window; it reads the state on fire, so every coalesced event is counted
+function throttleGauge(key, fn) {
+  if (gaugesTimers.has(key)) {
+    return;
+  }
+  gaugesTimers.set(
+    key,
+    setTimeout(async () => {
+      gaugesTimers.delete(key);
+      try {
+        await fn();
+      } catch (err) {
+        operationContext.global.logger.error('throttleGauge %s error: %s', key, err.stack);
+      }
+    }, GAUGES_THROTTLE_MS)
+  );
+}
+// count connections of this process by mode: pure property reads, no I/O
+function countConnectionsByMode(conns) {
+  const counts = {edit: 0, liveview: 0, view: 0};
+  for (const conn of conns) {
+    counts[utils.getConnectionCountMode(conn)]++;
+  }
+  return counts;
+}
+function scheduleLocalConnectionGauges() {
+  if (!clientStatsD) {
+    return;
+  }
+  throttleGauge('local', () => emitLocalConnectionGauges(clientStatsD, countConnectionsByMode(connections), replicaTags));
+}
+async function emitLegacyConnectionGaugeByMode(tenant, mode) {
+  const ctx = new operationContext.Context();
+  ctx.setTenant(tenant);
+  let count;
+  if ('liveview' === mode) {
+    count = await editorStat.getLiveViewerConnectionsCount(ctx, connections);
+  } else if ('view' === mode) {
+    count = await editorStat.getViewerConnectionsCount(ctx, connections);
+  } else {
+    count = await editorStat.getEditorConnectionsCount(ctx, connections);
+  }
+  clientStatsD.gauge('expireDoc.connections.' + mode, count);
+}
+// the legacy value is a shared editorStat aggregate, so throttle the query itself, per tenant and mode
+function scheduleLegacyConnectionGauge(tenant, mode) {
+  if (!clientStatsD) {
+    return;
+  }
+  throttleGauge(tenant + '|' + mode, () => emitLegacyConnectionGaugeByMode(tenant, mode));
+}
+// zero shard counters for tenants gone since the previous cycle
+async function resetDisappearedTenantCounters(prevTenants, currentTenants) {
+  for (const tenantId of prevTenants) {
+    if (!currentTenants.has(tenantId)) {
+      const tenantCtx = new operationContext.Context();
+      tenantCtx.setTenant(tenantId);
+      await editorStat.setEditorConnectionsCountByShard(tenantCtx, SHARD_ID, 0);
+      await editorStat.setLiveViewerConnectionsCountByShard(tenantCtx, SHARD_ID, 0);
+      await editorStat.setViewerConnectionsCountByShard(tenantCtx, SHARD_ID, 0);
+    }
+  }
 }
 function addPresence(ctx, conn, updateCunters) {
   return co(function* () {
@@ -522,16 +610,24 @@ const changeConnectionInfo = co.wrap(function* (ctx, conn, cmd) {
   }
   return false;
 });
-function signToken(ctx, payload, algorithm, expiresIn, secretElem) {
-  return co(function* () {
-    const options = {algorithm, expiresIn};
-    const secret = yield tenantManager.getTenantSecret(ctx, secretElem);
-    return jwt.sign(payload, utils.getJwtHsKey(secret), options);
-  });
-}
 function needSendChanges(conn) {
   return !conn.user?.view || utils.isLiveViewer(conn);
 }
+//a forcesave assembles the full file and sends it to the callback on behalf of the user, so a viewer must not trigger it
+function canStartForceSave(conn) {
+  return !!conn.user && !conn.user.view;
+}
+//a session token does not sign the callback, so a reconnect reuses the one its user index registered at open instead of the client value
+function getSessionCallback(ctx, row, userIndex) {
+  return (row?.callback && sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, userIndex, true)) || undefined;
+}
+//ai is off only where a signed token says so; the same flag is read from an open, session and version history token
+function isAiDisabledByJwt(decoded) {
+  const edit = decoded?.editorConfig;
+  //the version history payload is flat, so the integrator may sign customization next to key/url instead of under editorConfig
+  return true === edit?.ds_aiDisabled || true === edit?.customization?.ai?.disabled || true === decoded?.customization?.ai?.disabled;
+}
+
 function fillJwtByConnection(ctx, conn) {
   return co(function* () {
     const tenTokenSessionAlgorithm = ctx.getCfg('services.CoAuthoring.token.session.algorithm', cfgTokenSessionAlgorithm);
@@ -546,7 +642,8 @@ function fillJwtByConnection(ctx, conn) {
     //todo
     //edit.callbackUrl = callbackUrl;
     //edit.lang = conn.lang;
-    //edit.mode = conn.mode;
+    // the mode must come back on reconnect, otherwise the client alone decides it and a viewer returns as an editor
+    edit.mode = conn.mode;
     const user = edit.user;
     user.id = conn.user.idOriginal;
     user.name = conn.user.username;
@@ -556,13 +653,20 @@ function fillJwtByConnection(ctx, conn) {
       edit.coEditing = {mode: conn.coEditingMode};
     }
     //no standart
+    //runtime role after server side demotions (license, memory guard, migration), read by the encrypted save endpoint
+    edit.ds_view = conn.user.view;
     edit.ds_isCloseCoAuthoring = conn.isCloseCoAuthoring;
     edit.ds_isEnterCorrectPassword = conn.isEnterCorrectPassword;
     // presenter viewer opens with same session jwt. do not put sessionId to jwt
     // edit.ds_sessionId = conn.sessionId;
     edit.ds_sessionTimeConnect = conn.sessionTimeConnect;
+    //keep ai-off flag in session jwt so ai-proxy can reject requests of this session
+    if (conn.aiDisabled) {
+      edit.ds_aiDisabled = true;
+    }
 
-    return yield signToken(ctx, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000, commonDefines.c_oAscSecretType.Session);
+    // signed with the key derived for the session family, so an inbox token cannot pass at a session sink even where both read one secret file
+    return yield signToken(ctx, constants.JWT_PURPOSE_EDITOR_SESSION, payload, tenTokenSessionAlgorithm, tenTokenSessionExpires / 1000);
   });
 }
 
@@ -801,11 +905,11 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
   let auth;
   if (utils.canIncludeOutboxAuthorization(ctx, uri)) {
     const secret = await tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-    const bodyToken = utils.fillJwtForRequest(ctx, dataObject, secret, true);
-    auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
+    const bodyToken = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, dataObject, secret, true);
+    auth = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, dataObject, secret, false);
     const authLen = auth.length;
     if (opt_checkAndFixAuthorizationLength && !opt_checkAndFixAuthorizationLength(auth, dataObject)) {
-      auth = utils.fillJwtForRequest(ctx, dataObject, secret, false);
+      auth = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_CALLBACK, dataObject, secret, false);
       ctx.logger.warn('authorization too large. Use body token instead. size reduced from %d to %d', authLen, auth.length);
     }
     dataObject.setToken(bodyToken);
@@ -813,17 +917,13 @@ async function sendServerRequest(ctx, uri, dataObject, opt_checkAndFixAuthorizat
   // Status callbacks are one-shot POSTs; do not reuse stale keep-alive sockets.
   const headers = {'Content-Type': 'application/json', Connection: 'close'};
   //isInJwtToken is true because callbackUrl is required field in jwt token
-  const postRes = await utils.postRequestPromise(
-    ctx,
-    uri,
-    JSON.stringify(dataObject),
-    undefined,
-    undefined,
-    tenCallbackRequestTimeout,
-    auth,
-    tenTokenEnableRequestInbox,
+  const postRes = await utils.postRequestPromise(ctx, uri, {
+    data: JSON.stringify(dataObject),
+    timeout: tenCallbackRequestTimeout,
+    authorization: auth,
+    isInJwtToken: tenTokenEnableRequestInbox,
     headers
-  );
+  });
   ctx.logger.debug('postData response: data = %s', postRes.body);
   return postRes.body;
 }
@@ -901,8 +1001,11 @@ function* setForceSave(ctx, docId, forceSave, cmd, success, url) {
   const forceSaveType = forceSave.getType();
   let end = success;
   if (commonDefines.c_oAscForceSaveTypes.Form === forceSaveType || commonDefines.c_oAscForceSaveTypes.Internal === forceSaveType) {
-    const forceSave = yield editorData.getForceSave(ctx, docId);
-    end = forceSave.ended;
+    //record is absent when the document was already cleaned on exit
+    const actualForceSave = yield editorData.getForceSave(ctx, docId);
+    if (actualForceSave) {
+      end = actualForceSave.ended;
+    }
   }
   const convertInfo = new commonDefines.InputCommand(cmd, true);
   //remove request specific fields from cmd
@@ -1140,7 +1243,8 @@ async function startForceSave(
         const selectRes = await taskResult.select(ctx, docId);
         if (selectRes.length > 0) {
           res.code = commonDefines.c_oAscServerCommandErrors.NotModified;
-          if (forceSave) {
+          //the result reaches the browser, and only the relative save needs the link, so never hand out a download link for other types
+          if (forceSave && commonDefines.c_oAscForceSaveTypes.Internal === type) {
             res.url = await getForceSaveUrl(ctx, baseUrl, forceSave.convertInfo);
           }
         } else {
@@ -1166,6 +1270,9 @@ async function startForceSave(
     if (commonDefines.c_oAscForceSaveTypes.Timeout === type) {
       priority = constants.QUEUE_PRIORITY_VERY_LOW;
       expiration = getForceSaveExpiration(ctx);
+    } else if (commonDefines.c_oAscForceSaveTypes.Form === type) {
+      //reduce the disconnect race with the final save queued later; quorum queues split priorities only above 4
+      priority = constants.QUEUE_PRIORITY_HIGH;
     } else {
       priority = constants.QUEUE_PRIORITY_LOW;
     }
@@ -1236,7 +1343,7 @@ async function saveRelativeFromChanges(ctx, conn, responseKey, data) {
   let forceSaveRes;
   if (tenTokenEnableBrowser || token) {
     docId = null;
-    const checkJwtRes = await checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+    const checkJwtRes = await checkJwt(ctx, token, constants.JWT_PURPOSE_BROWSER_SAVE_RELATIVE);
     if (checkJwtRes.decoded) {
       docId = checkJwtRes.decoded.key;
     } else {
@@ -1305,7 +1412,7 @@ function* startRPC(ctx, conn, responseKey, data) {
   switch (data.type) {
     case 'sendForm': {
       let forceSaveRes;
-      if (conn.user) {
+      if (canStartForceSave(conn)) {
         //isPrint - to remove forms
         const jsonParams = {documentLayout: {isPrint: true}};
         forceSaveRes = yield startForceSave(
@@ -1326,6 +1433,9 @@ function* startRPC(ctx, conn, responseKey, data) {
           undefined,
           jsonParams
         );
+      } else {
+        ctx.logger.warn('startRPC sendForm access deny: view = %s', conn.user?.view);
+        forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null, inProgress: false};
       }
       if (!forceSaveRes || commonDefines.c_oAscServerCommandErrors.NoError !== forceSaveRes.code || forceSaveRes.inProgress) {
         sendDataRpc(ctx, conn, responseKey, forceSaveRes);
@@ -1624,17 +1734,13 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
       }
       while (true) {
         if (!sqlBase.isLockCriticalSection(docId)) {
-          yield canvasService.saveFromChanges(
-            ctx,
-            docId,
-            updateTask.statusInfo,
-            null,
-            opt_userId,
-            opt_userIndex,
-            opt_userLcid,
-            opt_queue,
-            opt_initShardKey
-          );
+          yield canvasService.saveFromChanges(ctx, docId, updateTask.statusInfo, {
+            userId: opt_userId,
+            userIndex: opt_userIndex,
+            userLcid: opt_userLcid,
+            queue: opt_queue,
+            initShardKey: opt_initShardKey
+          });
           break;
         }
         yield utils.sleep(c_oAscLockTimeOutDelay);
@@ -1653,53 +1759,15 @@ function createSaveTimer(ctx, docId, opt_userId, opt_userIndex, opt_userLcid, op
   });
 }
 
-function checkJwt(ctx, token, type) {
-  return co(function* () {
-    const tenTokenVerifyOptions = ctx.getCfg('services.CoAuthoring.token.verifyOptions', cfgTokenVerifyOptions);
-
-    const res = {decoded: null, description: null, code: null, token};
-    const secret = yield tenantManager.getTenantSecret(ctx, type);
-    if (undefined == secret) {
-      ctx.logger.warn('empty secret: token = %s', token);
-    }
-    try {
-      res.decoded = jwt.verify(token, utils.getJwtHsKey(secret), tenTokenVerifyOptions);
-      ctx.logger.debug('checkJwt success: decoded = %j', res.decoded);
-    } catch (err) {
-      ctx.logger.warn('checkJwt error: name = %s message = %s token = %s', err.name, err.message, token);
-      if ('TokenExpiredError' === err.name) {
-        res.code = constants.JWT_EXPIRED_CODE;
-        res.description = constants.JWT_EXPIRED_REASON + err.message;
-      } else if ('JsonWebTokenError' === err.name) {
-        res.code = constants.JWT_ERROR_CODE;
-        res.description = constants.JWT_ERROR_REASON + err.message;
-      }
-    }
-    return res;
-  });
-}
-function checkJwtHeader(ctx, req, opt_header, opt_prefix, opt_secretType) {
-  return co(function* () {
-    const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
-    const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
-
-    const header = opt_header || tenTokenInboxHeader;
-    const prefix = opt_prefix || tenTokenInboxPrefix;
-    const secretType = opt_secretType || commonDefines.c_oAscSecretType.Inbox;
-    const authorization = req.get(header);
-    if (authorization && authorization.startsWith(prefix)) {
-      const token = authorization.substring(prefix.length);
-      return yield checkJwt(ctx, token, secretType);
-    }
-    return null;
-  });
-}
-function getRequestParams(ctx, req, _opt_isNotInBody) {
+function getRequestParams(ctx, req, purpose) {
   return co(function* () {
     const tenTokenEnableRequestInbox = ctx.getCfg('services.CoAuthoring.token.enable.request.inbox', cfgTokenEnableRequestInbox);
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
+    const tenTokenInboxHeader = ctx.getCfg('services.CoAuthoring.token.inbox.header', cfgTokenInboxHeader);
+    const tenTokenInboxPrefix = ctx.getCfg('services.CoAuthoring.token.inbox.prefix', cfgTokenInboxPrefix);
 
-    const res = {code: constants.NO_ERROR, description: '', isDecoded: false, params: undefined};
+    // three views of one request: wireParams is what arrived unsigned, signedParams is what the token carried, params is what the request acts on
+    const res = {code: constants.NO_ERROR, description: '', isDecoded: false, params: undefined, signedParams: {}, wireParams: {}};
     if (req.body && Buffer.isBuffer(req.body) && req.body.length > 0) {
       try {
         res.params = JSON.parse(req.body.toString('utf8'));
@@ -1708,30 +1776,37 @@ function getRequestParams(ctx, req, _opt_isNotInBody) {
       }
     }
     if (!res.params) {
-      res.params = req.query;
+      // a copy, not the live object: the merge below would otherwise rewrite req.query, and proxyCommand forwards it verbatim on the shard hop
+      res.params = utils.assignOwnSafe({}, req.query);
     }
-    if (tenTokenEnableRequestInbox) {
+    const authorization = req.get(tenTokenInboxHeader);
+    const hasBodyToken = !!res.params?.token;
+    const hasHeaderToken = authorization && authorization.startsWith(tenTokenInboxPrefix);
+    if (tenTokenEnableRequestInbox || hasBodyToken || hasHeaderToken) {
       res.code = constants.VKEY;
       let checkJwtRes;
       if (res.params.token) {
-        checkJwtRes = yield checkJwt(ctx, res.params.token, commonDefines.c_oAscSecretType.Inbox);
+        checkJwtRes = yield checkJwt(ctx, res.params.token, purpose);
       } else {
-        checkJwtRes = yield checkJwtHeader(ctx, req);
+        checkJwtRes = yield checkJwtHeader(ctx, req, purpose);
+      }
+      // a rejected or absent token must not leave attacker-controlled request params behind
+      if (!checkJwtRes || !checkJwtRes.decoded) {
+        res.params = {};
       }
       if (checkJwtRes) {
         if (checkJwtRes.decoded) {
           res.code = constants.NO_ERROR;
           res.isDecoded = true;
+          // header tokens keep their fields under payload/query, so the signed view has to be the same flattening the effective one gets
+          res.signedParams = utils.mergeJwtDecodedParams({}, checkJwtRes.decoded);
           if (tenTokenRequiredParams) {
             res.params = {};
+          } else {
+            // the wire view exists only where the wire survives; it is taken before the merge, or a field the token also names would look like one it never had
+            res.wireParams = utils.assignOwnSafe({}, res.params);
           }
-          Object.assign(res.params, checkJwtRes.decoded);
-          if (!utils.isEmptyObject(checkJwtRes.decoded.payload)) {
-            Object.assign(res.params, checkJwtRes.decoded.payload);
-          }
-          if (!utils.isEmptyObject(checkJwtRes.decoded.query)) {
-            Object.assign(res.params, checkJwtRes.decoded.query);
-          }
+          utils.mergeJwtDecodedParams(res.params, checkJwtRes.decoded);
         } else if (constants.JWT_EXPIRED_CODE == checkJwtRes.code) {
           res.code = constants.VKEY_KEY_EXPIRE;
         }
@@ -1805,6 +1880,11 @@ async function isSchemaCompatible([tableName, tableSchema]) {
 exports.c_oAscServerStatus = c_oAscServerStatus;
 exports.editorData = editorData;
 exports.editorStat = editorStat;
+exports.emitLegacyConnectionGauges = emitLegacyConnectionGauges;
+exports.emitLocalConnectionGauges = emitLocalConnectionGauges;
+exports.countConnectionsByMode = countConnectionsByMode;
+exports.buildReplicaTags = buildReplicaTags;
+exports.resetDisappearedTenantCounters = resetDisappearedTenantCounters;
 exports.editorStatProxy = editorStatProxy;
 exports.sendData = sendData;
 exports.modifyConnectionForPassword = modifyConnectionForPassword;
@@ -1831,9 +1911,16 @@ exports.setForceSave = setForceSave;
 exports.startForceSave = startForceSave;
 exports.resetForceSaveAfterChanges = resetForceSaveAfterChanges;
 exports.getExternalChangeInfo = getExternalChangeInfo;
-exports.checkJwt = checkJwt;
 exports.getRequestParams = getRequestParams;
+// the JWT layer lives in jwtService; re-exported so existing callers and tests keep one entry point
+exports.checkJwt = checkJwt;
+exports.checkJwtForConnection = checkJwtForConnection;
 exports.checkJwtHeader = checkJwtHeader;
+exports.isAiDisabledByJwt = isAiDisabledByJwt;
+exports.canStartForceSave = canStartForceSave;
+exports.getSessionCallback = getSessionCallback;
+exports.startRPCPromise = co.wrap(startRPC);
+exports.validateJwtPayloadForOperation = jwtService.validateJwtPayloadForOperation;
 
 async function encryptPasswordParams(ctx, data) {
   let dataWithPassword;
@@ -1888,8 +1975,7 @@ exports.install = function (server, app, callbackFunction) {
         const handshake = socket.handshake;
         const token = handshake?.auth?.session || handshake?.auth?.token;
         if (tenTokenEnableBrowser || token) {
-          const secretType = handshake?.auth?.session ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-          checkJwtRes = yield checkJwt(ctx, token, secretType);
+          checkJwtRes = yield checkJwtForConnection(ctx, token, !!handshake?.auth?.session);
           if (!checkJwtRes.decoded) {
             res = new Error('not authorized');
             res.data = {code: checkJwtRes.code, description: checkJwtRes.description};
@@ -1952,7 +2038,13 @@ exports.install = function (server, app, callbackFunction) {
               (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) &&
               ('getLock' == data.type || 'saveChanges' == data.type || 'isSaveLock' == data.type)
             ) {
-              ctx.logger.warn('conn.user.view||isCloseCoAuthoring access deny: type = %s', data.type);
+              ctx.logger.warn(
+                'conn.user.view||isCloseCoAuthoring access deny: type = %s; view = %s; isCloseCoAuthoring = %s; editorType = %s',
+                data.type,
+                conn.user?.view,
+                conn.isCloseCoAuthoring,
+                conn.editorType
+              );
               sendDataDisconnectReason(ctx, conn, constants.ACCESS_DENIED_CODE, constants.ACCESS_DENIED_REASON);
               conn.disconnect(true);
               return;
@@ -2012,7 +2104,7 @@ exports.install = function (server, app, callbackFunction) {
                 break;
               case 'forceSaveStart': {
                 let forceSaveRes;
-                if (conn.user) {
+                if (canStartForceSave(conn)) {
                   forceSaveRes = yield startForceSave(
                     ctx,
                     docId,
@@ -2030,6 +2122,7 @@ exports.install = function (server, app, callbackFunction) {
                     conn
                   );
                 } else {
+                  ctx.logger.warn('forceSaveStart access deny: view = %s', conn.user?.view);
                   forceSaveRes = {code: commonDefines.c_oAscServerCommandErrors.UnknownError, time: null};
                 }
                 sendData(ctx, conn, {type: 'forceSaveStart', messages: forceSaveRes});
@@ -2349,10 +2442,13 @@ exports.install = function (server, app, callbackFunction) {
     }
 
     //Release locks
-    if (releaseLocks && conn) {
+    if (releaseLocks) {
       const userLocks = yield removeUserLocks(ctx, docId, userId);
       if (0 < userLocks.length) {
-        sendReleaseLock(ctx, conn, userLocks);
+        // a lost connection has nobody to notify, but the other participants still must see its locks go
+        if (conn) {
+          sendReleaseLock(ctx, conn, userLocks);
+        }
         yield publish(
           ctx,
           {
@@ -2389,7 +2485,7 @@ exports.install = function (server, app, callbackFunction) {
           ctx.logger.warn('lockDocumentsTimerId timeout');
           delete lockDocumentsTimerId[docId];
           //todo remove checkEndAuthLock(only needed for lost connections in redis)
-          yield* checkEndAuthLock(ctx, true, false, docId, userId);
+          yield* checkEndAuthLock(ctx, true, false, docId, userId, true);
           yield* publishCloseUsersConnection(ctx, docId, [userId], false, constants.DROP_CODE, constants.DROP_REASON);
         } catch (e) {
           ctx.logger.error('lockDocumentsTimerId error: %s', e.stack);
@@ -2622,10 +2718,10 @@ exports.install = function (server, app, callbackFunction) {
     return name;
   }
   function isEditMode(permissions, mode) {
-    //like this.api.asc_setViewMode(!this.appOptions.isEdit && !this.appOptions.isRestrictedEdit);
-    //https://github.com/ONLYOFFICE/web-apps/blob/4a7879b4f88f315fe94d9f7d97c0ed8aa9f82221/apps/documenteditor/main/app/controller/Main.js#L1743
-    //todo permissions in embed editor
-    //https://github.com/ONLYOFFICE/web-apps/blob/72b8350c71e7b314b63b8eec675e76156bb4a2e4/apps/documenteditor/forms/app/controller/ApplicationController.js#L627
+    // this is the ceiling of rights taken from the token, not a copy of any client formula
+    // the client may only lower it, by sending mode 'view' or by calling asc_setCanSendChanges, and the server sees only the first
+    // every client condition that allows writing to the server must stay a subset of this
+    //todo the ceiling ignores editorType and fileType, so fillForms and review count even for editors that do not support them
     return (
       (!mode || mode !== 'view') &&
       (!permissions || permissions.edit !== false || permissions.review === true || permissions.comment === true || permissions.fillForms === true)
@@ -2811,6 +2907,10 @@ exports.install = function (server, app, callbackFunction) {
       }
     }
 
+    //ai-off flag comes from customization on open and from ds_aiDisabled on session restore; the token decides, not the client
+    //TODO: this path runs only while services.CoAuthoring.token.enable.browser is on; with jwt off the integrator flag never arrives, aiSettings.enable is the only switch left
+    data.aiDisabled = isAiDisabledByJwt(decoded);
+
     //todo make required fields
     if (decoded.url || decoded.payload || (decoded.key && !wopiClient.isWopiJwtToken(decoded))) {
       ctx.logger.warn('fillDataFromJwt token has invalid format');
@@ -2822,6 +2922,9 @@ exports.install = function (server, app, callbackFunction) {
     const openCmd = data.openCmd;
     data.mode = 'view';
     data.coEditingMode = 'strict';
+    //history reopens a fresh connection, so the restriction of the parent session is gone and only this token can carry it
+    //TODO: an integrator that does not sign the ai flag into its history token keeps ai available in history sessions; aiSettings.enable is the only switch that covers them
+    data.aiDisabled = isAiDisabledByJwt(decoded);
     data.docid = decoded.key;
     openCmd.url = decoded.url;
     if (decoded.changesUrl && decoded.previous) {
@@ -2848,16 +2951,16 @@ exports.install = function (server, app, callbackFunction) {
     const tenTokenRequiredParams = ctx.getCfg('services.CoAuthoring.server.tokenRequiredParams', cfgTokenRequiredParams);
 
     //TODO: Do authorization etc. check md5 or query db
-    ctx.logger.debug('auth time: %d', data.time);
+    ctx.logger.debug('auth time: %d; requestedMode = %s; format = %s', data.time, data.mode, data.openCmd?.format);
     if (data.token && data.user) {
       ctx.setUserId(data.user.id);
       const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
       let isDecoded = false;
+      let isSessionAuth = false;
       //check jwt
       const token = data.jwtSession || data.jwtOpen;
       if (tenTokenEnableBrowser || token) {
-        const secretType = data.jwtSession ? commonDefines.c_oAscSecretType.Session : commonDefines.c_oAscSecretType.Browser;
-        const checkJwtRes = yield checkJwt(ctx, token, secretType);
+        const checkJwtRes = yield checkJwtForConnection(ctx, token, !!data.jwtSession);
         if (checkJwtRes.decoded) {
           isDecoded = true;
           const decoded = checkJwtRes.decoded;
@@ -2868,6 +2971,7 @@ exports.install = function (server, app, callbackFunction) {
           } else if (decoded.editorConfig && undefined !== decoded.editorConfig.ds_sessionTimeConnect) {
             //reconnection
             fillDataFromJwtRes = fillDataFromJwt(ctx, decoded, data);
+            isSessionAuth = true;
           } else if (decoded.version) {
             //version required, but maybe add new type like jwtSession?
             //version history
@@ -2905,6 +3009,12 @@ exports.install = function (server, app, callbackFunction) {
       const docId = data.docid;
       const user = data.user;
 
+      //todo minimize select calls on opening
+      const result = yield taskResult.select(ctx, docId);
+      const resultRow = result.length > 0 ? result[0] : null;
+      if (isSessionAuth) {
+        data.documentCallbackUrl = getSessionCallback(ctx, resultRow, user.indexUser);
+      }
       let wopiParams = null,
         wopiParamsFull = null,
         openedAtStr;
@@ -2922,9 +3032,6 @@ exports.install = function (server, app, callbackFunction) {
           cmd.setWithAuthorization(true);
         }
       }
-      //todo minimize select calls on opening
-      const result = yield taskResult.select(ctx, docId);
-      const resultRow = result.length > 0 ? result[0] : null;
       if (wopiParams) {
         if (resultRow && resultRow.callback) {
           wopiParamsFull = wopiClient.parseWopiCallback(ctx, data.documentCallbackUrl, resultRow.callback);
@@ -3005,6 +3112,7 @@ exports.install = function (server, app, callbackFunction) {
       conn.tenant = tenantManager.getTenantByConnection(ctx, conn);
       conn.docId = data.docid;
       conn.permissions = data.permissions;
+      conn.mode = data.mode;
       conn.user = {
         id: curUserId,
         idOriginal: curUserIdOriginal,
@@ -3019,6 +3127,8 @@ exports.install = function (server, app, callbackFunction) {
       conn.isCloseCoAuthoring = data.isCloseCoAuthoring;
       conn.isEnterCorrectPassword = data.isEnterCorrectPassword;
       conn.denyChangeName = data.denyChangeName;
+      //trusted only when it came from a signed token; a re-auth on the same connection may switch ai off but never back on
+      conn.aiDisabled = conn.aiDisabled || true === data.aiDisabled;
       conn.editorType = data['editorType'];
       if (data.sessionTimeConnect) {
         conn.sessionTimeConnect = data.sessionTimeConnect;
@@ -3214,7 +3324,7 @@ exports.install = function (server, app, callbackFunction) {
       } else {
         conn.sessionId = conn.id;
         const openedAt = openedAtStr ? sqlBase.DocumentAdditional.prototype.getOpenedAt(openedAtStr) : canvasService.getOpenedAt(resultRow);
-        const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, openedAt);
+        const endAuthRes = yield* endAuth(ctx, conn, false, documentCallback, openedAt, resultRow);
         if (endAuthRes && cmd) {
           //todo to allow forcesave TemplateSource after convertion(move to better place)
           if (wopiParamsFull?.commonInfo?.fileInfo?.TemplateSource) {
@@ -3228,7 +3338,7 @@ exports.install = function (server, app, callbackFunction) {
     }
   }
 
-  function* endAuth(ctx, conn, bIsRestore, documentCallback, opt_openedAt) {
+  function* endAuth(ctx, conn, bIsRestore, documentCallback, opt_openedAt, opt_resultRow) {
     const tenExpLockDoc = ctx.getCfg('services.CoAuthoring.expire.lockDoc', cfgExpLockDoc);
     const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
 
@@ -3272,7 +3382,8 @@ exports.install = function (server, app, callbackFunction) {
         const forgotten = yield storage.listObjects(ctx, docId, tenForgottenFiles);
         hasForgotten = forgotten.length > 0;
         ctx.logger.debug('endAuth hasForgotten %s', hasForgotten);
-        if (hasForgotten) {
+        // The recovery marker is not consumed, so a fresh editor open re-sends this warning until the marker clears.
+        if (hasForgotten || documentRecovery.isAssemblyRecovery(opt_resultRow)) {
           sendDataWarning(ctx, conn, constants.FILE_NOT_ASSEMBLED, 'File not assembled');
         }
       }
@@ -3478,7 +3589,6 @@ exports.install = function (server, app, callbackFunction) {
       indexUser: conn.user.indexUser,
       hasForgotten: opt_hasForgotten,
       jwt: sessionToken,
-      g_cAscSpellCheckUrl: tenEditor['spellcheckerUrl'],
       buildVersion: commonDefines.buildVersion,
       buildNumber: commonDefines.buildNumber,
       licenseType: conn.licenseType,
@@ -3924,6 +4034,8 @@ exports.install = function (server, app, callbackFunction) {
 
         const [licenseInfo] = yield tenantManager.getTenantLicense(ctx);
         const pluginSettings = yield aiProxyHandler.getPluginSettingsForInterface(ctx);
+        //while ai is off the browser gets neither settings nor the permission to reach a provider on its own
+        const tenAllowBrowserProxy = aiProxyHandler.isAiEnabled(ctx) && ctx.getCfg('aiSettings.allowBrowserProxy', cfgAiApiAllowBrowserProxy);
         sendData(ctx, conn, {
           type: 'license',
           license: {
@@ -3940,7 +4052,8 @@ exports.install = function (server, app, callbackFunction) {
             customization: licenseInfo.customization,
             advancedApi: licenseInfo.advancedApi
           },
-          aiPluginSettings: pluginSettings
+          aiPluginSettings: pluginSettings,
+          aiPluginSettingsAllowBrowserProxy: tenAllowBrowserProxy
         });
         ctx.logger.info('_checkLicense end');
       } catch (err) {
@@ -4270,6 +4383,7 @@ exports.install = function (server, app, callbackFunction) {
     const now = Date.now();
     yield editorStat.setEditorConnections(ctx, countEdit, countLiveView, countView, now, PRECISION);
   }
+  let expireDocPrevTenants = new Set();
   function expireDoc() {
     return co(function* () {
       const ctx = new operationContext.Context();
@@ -4335,10 +4449,11 @@ exports.install = function (server, app, callbackFunction) {
             ctx.logger.error('expireDoc connection closed');
           }
           yield updatePresence(ctx, conn);
-          if (utils.isLiveViewer(conn)) {
+          const mode = utils.getConnectionCountMode(conn);
+          if ('liveview' === mode) {
             countLiveViewByShard++;
             tenant.countLiveViewByShard++;
-          } else if (conn.isCloseCoAuthoring || (conn.user && conn.user.view)) {
+          } else if ('view' === mode) {
             countViewByShard++;
             tenant.countViewByShard++;
           } else {
@@ -4354,16 +4469,19 @@ exports.install = function (server, app, callbackFunction) {
             yield editorStat.setEditorConnectionsCountByShard(ctx, SHARD_ID, tenant.countEditByShard);
             yield editorStat.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countLiveViewByShard);
             yield editorStat.setViewerConnectionsCountByShard(ctx, SHARD_ID, tenant.countViewByShard);
-            if (clientStatsD) {
-              //todo with multitenant
-              const countEdit = yield editorStat.getEditorConnectionsCount(ctx, connections);
-              clientStatsD.gauge('expireDoc.connections.edit', countEdit);
-              const countLiveView = yield editorStat.getLiveViewerConnectionsCount(ctx, connections);
-              clientStatsD.gauge('expireDoc.connections.liveview', countLiveView);
-              const countView = yield editorStat.getViewerConnectionsCount(ctx, connections);
-              clientStatsD.gauge('expireDoc.connections.view', countView);
-            }
+            //todo with multitenant
+            yield emitLegacyConnectionGauges(ctx, clientStatsD, editorStat, connections);
           }
+        }
+        const currentTenants = new Set(Object.keys(tenants));
+        yield resetDisappearedTenantCounters(expireDocPrevTenants, currentTenants);
+        expireDocPrevTenants = currentTenants;
+        if (0 === Object.keys(tenants).length) {
+          // no connections: reconcile shard counters and legacy gauges to zero
+          yield editorStat.setEditorConnectionsCountByShard(ctx, SHARD_ID, 0);
+          yield editorStat.setLiveViewerConnectionsCountByShard(ctx, SHARD_ID, 0);
+          yield editorStat.setViewerConnectionsCountByShard(ctx, SHARD_ID, 0);
+          yield emitLegacyConnectionGauges(ctx, clientStatsD, editorStat, connections);
         }
         if (tenantManager.isMultitenantMode(ctx) && !tenantManager.isDefaultTenant(ctx)) {
           //aggregated tenant stats
@@ -4375,6 +4493,7 @@ exports.install = function (server, app, callbackFunction) {
           yield editorStat.setLiveViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countLiveViewByShard);
           yield editorStat.setViewerConnectionsCountByShard(aggregationCtx, SHARD_ID, countViewByShard);
         }
+        emitLocalConnectionGauges(clientStatsD, {edit: countEditByShard, liveview: countLiveViewByShard, view: countViewByShard}, replicaTags);
         ctx.initDefault();
       } catch (err) {
         ctx.logger.error('expireDoc error: %s', err.stack);
@@ -4467,7 +4586,9 @@ exports.install = function (server, app, callbackFunction) {
 };
 exports.setLicenseInfo = async function (globalCtx, data, original) {
   tenantManager.setDefLicense(data, original);
-
+  await notifyLicenseExpirations(globalCtx, data);
+};
+async function notifyLicenseExpirations(globalCtx, data) {
   await utilsDocService.notifyLicenseExpiration(globalCtx, data.endDate);
 
   const tenantsList = await tenantManager.getAllTenants(globalCtx);
@@ -4479,6 +4600,10 @@ exports.setLicenseInfo = async function (globalCtx, data, original) {
     const [licenseInfo] = await tenantManager.getTenantLicense(ctx);
     await utilsDocService.notifyLicenseExpiration(ctx, licenseInfo.endDate);
   }
+}
+exports.notifyLicenseExpirations = notifyLicenseExpirations;
+exports.setLicenseReloader = function (reloader) {
+  reloadLicense = reloader;
 };
 exports.healthCheck = function (req, res) {
   return co(function* () {
@@ -4535,6 +4660,24 @@ exports.healthCheck = function (req, res) {
     }
   });
 };
+// the carrier and the two routing keys are transport, not command input: proxyCommand adds the shard key on the internal hop, so it can never be signed
+const COMMAND_TRANSPORT_FIELDS = new Set(['token', constants.SHARD_KEY_API_NAME, constants.SHARD_KEY_WOPI_NAME]);
+// A verified command must be exactly the token: every field here selects the action, so one that arrived on the wire without the token
+// naming the same value is refused by name rather than dropped, which would silently turn a valid-looking request into a different command.
+// The comparison is against the wire view, taken before the merge, because the merge has already let the signed value win by then.
+function unsignedCommandFields(authRes) {
+  const signed = authRes.signedParams || {};
+  const names = [];
+  for (const name of Object.keys(authRes.wireParams || {})) {
+    if (COMMAND_TRANSPORT_FIELDS.has(name)) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(signed, name) || !isDeepStrictEqual(authRes.wireParams[name], signed[name])) {
+      names.push(name);
+    }
+  }
+  return names;
+}
 function validateInputParams(ctx, authRes, command) {
   const commandsWithoutKey = ['version', 'license', 'getForgottenList'];
   const isValidWithoutKey = commandsWithoutKey.includes(command.c);
@@ -4581,6 +4724,14 @@ function* findForgottenFile(ctx, docId) {
 }
 
 function* commandLicense(ctx) {
+  if (reloadLicense) {
+    try {
+      yield reloadLicense();
+    } catch (err) {
+      // a failed reload answers from the license already in memory, as the command always did
+      ctx.logger.warn('commandLicense reload error: %s', err.stack);
+    }
+  }
   const nowUTC = getLicenseNowUtc();
   const users = yield editorStat.getPresenceUniqueUser(ctx, nowUTC);
   const users_view = yield editorStat.getPresenceUniqueViewUser(ctx, nowUTC);
@@ -4605,17 +4756,13 @@ async function proxyCommand(ctx, req, params) {
   }
   ctx.logger.info('commandFromServer proxy request with "key" to correctly process commands in sharded cluster to url:%s', url);
   //isInJwtToken is true because 'command' is always internal
-  return await utils.postRequestPromise(
-    ctx,
-    url,
-    req.body,
-    null,
-    req.body.length,
-    tenCallbackRequestTimeout,
-    undefined,
-    tenTokenEnableRequestInbox,
-    req.headers
-  );
+  return await utils.postRequestPromise(ctx, url, {
+    data: req.body,
+    dataSize: req.body.length,
+    timeout: tenCallbackRequestTimeout,
+    isInJwtToken: tenTokenEnableRequestInbox,
+    headers: req.headers
+  });
 }
 /**
  * Server commands handler.
@@ -4757,11 +4904,18 @@ exports.commandFromServer = function (req, res) {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
       ctx.logger.info('commandFromServer start');
-      const authRes = yield getRequestParams(ctx, req);
+      const authRes = yield getRequestParams(ctx, req, constants.JWT_PURPOSE_COMMAND);
       const params = authRes.params;
+      const unsigned = authRes.isDecoded ? unsignedCommandFields(authRes) : [];
       // Key is document id
       output.key = params.key;
-      output.error = validateInputParams(ctx, authRes, params);
+      if (unsigned.length > 0) {
+        // only the names, never the values, and only the first few: the list is attacker-sized
+        ctx.logger.warn('commandFromServer refused: %d field(s) did not come from the token: %j', unsigned.length, unsigned.slice(0, 10));
+        output.error = commonDefines.c_oAscServerCommandErrors.Token;
+      } else {
+        output.error = validateInputParams(ctx, authRes, params);
+      }
       if (output.error === commonDefines.c_oAscServerCommandErrors.NoError) {
         if (params.key && !req.query[constants.SHARD_KEY_API_NAME] && !req.query[constants.SHARD_KEY_WOPI_NAME] && process.env.DEFAULT_SHARD_KEY) {
           postRes = yield proxyCommand(ctx, req, params);
@@ -4795,8 +4949,12 @@ exports.shutdown = function (req, res) {
     try {
       ctx.initFromRequest(req);
       yield ctx.initTenantCache();
-      ctx.logger.info('shutdown start');
-      output = yield shutdown.shutdown(ctx, editorStat, req.method === 'PUT');
+      const isShutdown = req.method === 'PUT';
+      // recovery is on by default; recoverChanges=0 keeps the plain quick drain of the old behavior
+      const recoverChangesParam = req.query?.recoverChanges;
+      const recoverChanges = isShutdown && '0' !== recoverChangesParam && 'false' !== recoverChangesParam;
+      ctx.logger.info('shutdown start: recoverChanges=%s', recoverChanges);
+      output = yield shutdown.shutdown(ctx, editorStat, isShutdown, recoverChanges);
     } catch (err) {
       ctx.logger.error('shutdown error %s', err.stack);
     } finally {
@@ -4847,7 +5005,8 @@ exports.getShutdownStatus = function (req, res) {
     ctx.initFromRequest(req);
     res.setHeader('Content-Type', 'application/json');
     res.json({
-      shutdown: getIsShutdown()
+      shutdown: getIsShutdown(),
+      recovery: shutdown.getLastRecoveryReport()
     });
   } catch (err) {
     ctx.logger.error('getShutdownStatus error %s', err.stack);

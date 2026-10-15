@@ -1,7 +1,6 @@
 'use strict';
 
 const express = require('express');
-const cors = require('cors');
 const ms = require('ms');
 const config = require('config');
 const cron = require('cron');
@@ -14,11 +13,9 @@ const fs = require('fs');
 
 // Configuration values
 const cfgExpDocumentsCron = config.get('services.CoAuthoring.expire.documentsCron');
-const cfgEditorStatStorage =
-  config.get('services.CoAuthoring.server.editorStatStorage') || config.get('services.CoAuthoring.server.editorDataStorage');
 
 // Initialize editor stat storage
-const editorStatStorage = require(`../${cfgEditorStatStorage}`);
+const {editorStatStorage} = require('../editorDataStorage');
 const editorStat = new editorStatStorage.EditorStat();
 
 // Constants
@@ -286,7 +283,14 @@ async function licenseInfo(req, res, getConnections = null) {
 
   const requestedTenant = req.query && req.query.tenant;
   if (requestedTenant) {
-    const userTenant = req.user && req.user.tenant;
+    //the tenant override is authenticated-only; DocService mounts this handler without any auth, so req.user is absent there
+    if (!req.user) {
+      if (!res.headersSent) {
+        res.status(403).json({error: 'Forbidden'});
+      }
+      return;
+    }
+    const userTenant = req.user.tenant;
     if (userTenant && requestedTenant !== userTenant) {
       const defaultTenant = tenantManager.getDefautTenant();
       if (userTenant !== defaultTenant) {
@@ -312,8 +316,8 @@ async function licenseInfo(req, res, getConnections = null) {
 function createInfoRouter(getConnections = null) {
   const router = express.Router();
 
-  // License info endpoint with CORS and client IP check
-  router.get('/info.json', cors(), utils.checkClientIp, async (req, res) => {
+  // License info endpoint with client IP check
+  router.get('/info.json', utils.checkClientIp, async (req, res) => {
     await licenseInfo(req, res, getConnections);
   });
 

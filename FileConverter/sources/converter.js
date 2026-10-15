@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 'use strict';
 const os = require('os');
 const path = require('path');
@@ -42,7 +41,7 @@ const co = require('co');
 const config = require('config');
 const spawnAsync = require('@expo/spawn-async');
 const bytes = require('bytes');
-const lcid = require('lcid');
+const windowsLocale = require('windows-locale');
 const ms = require('ms');
 const {pipeline} = require('node:stream/promises');
 
@@ -50,8 +49,10 @@ const commonDefines = require('./../../Common/sources/commondefines');
 const storage = require('./../../Common/sources/storage/storage-base');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
+const templateLocale = require('./../../Common/sources/templateLocale');
 const baseConnector = require('../../DocService/sources/databaseConnectors/baseConnector');
 const wopiUtils = require('./../../DocService/sources/wopiUtils');
+const wopiEgress = require('./../../DocService/sources/wopiEgress');
 const taskResult = require('./../../DocService/sources/taskresult');
 const statsDClient = require('./../../Common/sources/statsdclient');
 const queueService = require('./../../Common/sources/taskqueueRabbitMQ');
@@ -117,6 +118,17 @@ function getCloudSigningMode(certPath, signingCfg) {
   if (!hasCloudProvider) return {isCloud: false, certPath};
 
   return {isCloud: detectCertType(certPath) === 'pem', certPath};
+}
+
+/**
+ * @param {number} formatTo - resolved output format
+ * @param {number} forceSaveType - c_oAscForceSaveTypes value of the task
+ * @returns {boolean} true when a form submit produces a pdf that x2t can sign
+ */
+function isSigningTask(formatTo, forceSaveType) {
+  // pdfa is already normalized to plain pdf in the TaskQueueDataConvert constructor
+  const isPdf = constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF === formatTo || constants.AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF === formatTo;
+  return isPdf && commonDefines.c_oAscForceSaveTypes.Form === forceSaveType;
 }
 
 /**
@@ -258,7 +270,7 @@ TaskQueueDataConvert.prototype = {
     xml += this.serializeXmlProp('m_oTimestamp', this.timestamp.toISOString());
     xml += this.serializeXmlProp('m_bIsNoBase64', this.noBase64);
     xml += this.serializeXmlProp('m_sConvertToOrigin', this.convertToOrigin);
-    if (this.formatTo === constants.AVS_OFFICESTUDIO_FILE_DOCUMENT_OFORM_PDF && commonDefines.c_oAscForceSaveTypes.Form === this.forceSaveType) {
+    if (isSigningTask(this.formatTo, this.forceSaveType)) {
       const signingPath = resolveSigningPath(ctx);
       const signingCfg = ctx.getCfg('FileConverter.converter.signing', cfgSigning);
       const {isCloud, certPath} = getCloudSigningMode(signingPath, signingCfg);
@@ -464,28 +476,34 @@ async function changeFormatToExtendedPdf(ctx, dataConvert, cmd) {
     }
   }
 }
+let lcidToTagMap = null;
+// Reverse Windows-locale lookup (numeric LCID -> BCP-47 tag); covers neutral LCIDs that lcid lacks.
+function lcidToTag(id) {
+  if (!lcidToTagMap) {
+    lcidToTagMap = Object.create(null);
+    for (const key of Object.keys(windowsLocale)) {
+      const entry = windowsLocale[key];
+      // 4096 (LOCALE_CUSTOM_UNSPECIFIED) is shared by many locales; treat it as no specific locale.
+      if (entry.id != null && entry.id !== 4096 && lcidToTagMap[entry.id] == null) {
+        lcidToTagMap[entry.id] = entry.tag;
+      }
+    }
+  }
+  return lcidToTagMap[id];
+}
 /**
  * Replace an empty file with a localized template of the requested format, if available.
  * @param {operationContext} ctx - Operation context for config and logging
  * @param {string} fileFrom - Path to the file to check/replace
  * @param {string} ext - Target extension (e.g., 'docx', 'xlsx', 'pptx')
- * @param {number} _lcid - Optional locale identifier to select template locale
+ * @param {number} _lcid - Optional numeric Windows LCID to select template locale
  */
 function replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
   const tenNewFileTemplate = ctx.getCfg('services.CoAuthoring.server.newFileTemplate', cfgNewFileTemplate);
   if (!fs.existsSync(fileFrom) || 0 === fs.lstatSync(fileFrom).size) {
-    let locale = constants.TEMPLATES_DEFAULT_LOCALE;
-    if (_lcid) {
-      let localeNew = lcid.from(_lcid);
-      if (localeNew) {
-        localeNew = localeNew.replace(/_/g, '-');
-        if (fs.existsSync(path.join(tenNewFileTemplate, localeNew))) {
-          locale = localeNew;
-        } else {
-          ctx.logger.debug('replaceEmptyFile empty locale dir locale=%s', localeNew);
-        }
-      }
-    }
+    const requestedLocale = _lcid ? lcidToTag(_lcid) : undefined;
+    const folders = templateLocale.readTemplateFoldersSync(tenNewFileTemplate);
+    const locale = templateLocale.resolveTemplateLocale(requestedLocale, folders, constants.TEMPLATES_DEFAULT_LOCALE);
     const fileTemplatePath = path.join(tenNewFileTemplate, locale, 'new.');
     if (fs.existsSync(fileTemplatePath + ext)) {
       ctx.logger.debug('replaceEmptyFile format=%s locale=%s', ext, locale);
@@ -507,34 +525,44 @@ function replaceEmptyFile(ctx, fileFrom, ext, _lcid) {
     }
   }
 }
-function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_headers) {
+function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_headers, opt_expectedDigest, opt_wopi) {
   const tenMaxDownloadBytes = ctx.getCfg('FileConverter.converter.maxDownloadBytes', cfgMaxDownloadBytes);
   const tenDownloadTimeout = ctx.getCfg('FileConverter.converter.downloadTimeout', cfgDownloadTimeout);
   const tenDownloadAttemptMaxCount = ctx.getCfg('FileConverter.converter.downloadAttemptMaxCount', cfgDownloadAttemptMaxCount);
   const tenDownloadAttemptDelay = ctx.getCfg('FileConverter.converter.downloadAttemptDelay', cfgDownloadAttemptDelay);
   let res = constants.CONVERT_DOWNLOAD;
-  let data = null;
-  let sha256 = null;
   let downloadAttemptCount = 0;
   const urlParsed = url.parse(uri);
-  const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+  // a wopi destination is judged by the wopi egress boundary, everything else keeps the plain host filter
+  const filterStatus = opt_wopi ? 0 : yield* utils.checkHostFilter(ctx, urlParsed.hostname);
   if (0 == filterStatus) {
     while (constants.NO_ERROR !== res && downloadAttemptCount++ < tenDownloadAttemptMaxCount) {
       try {
         let authorization;
         if (utils.canIncludeOutboxAuthorization(ctx, uri) && withAuthorization) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest(ctx, {url: uri}, secret, false);
+          authorization = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_DOWNLOAD, {url: uri}, secret, false);
         }
-        const getRes = yield utils.downloadUrlPromise(ctx, uri, tenDownloadTimeout, tenMaxDownloadBytes, authorization, isInJwtToken, opt_headers);
-        data = getRes.body;
-        sha256 = getRes.sha256;
+        const downloadOptions = {
+          timeout: tenDownloadTimeout,
+          limit: tenMaxDownloadBytes,
+          authorization,
+          isInJwtToken,
+          expectedDigest: opt_expectedDigest,
+          returnStream: true
+        };
+        const {stream, getIntegrity} = yield opt_wopi
+          ? wopiEgress.download(ctx, uri, {...downloadOptions, headers: opt_headers, ...opt_wopi})
+          : utils.downloadUrlPromise(ctx, uri, {...downloadOptions, headers: opt_headers});
+        const hashStream = new utils.HashSizeStream();
+        yield pipeline(stream, hashStream, fs.createWriteStream(fileFrom));
+        ctx.logger.debug('downloadFile complete filesize=%d sha256=%s integrity=%j', hashStream.byteCount, hashStream.sha256, getIntegrity());
         res = constants.NO_ERROR;
       } catch (err) {
         res = constants.CONVERT_DOWNLOAD;
         ctx.logger.error('error downloadFile:url=%s;attempt=%d;code:%s;connect:%s %s', uri, downloadAttemptCount, err.code, err.connect, err.stack);
-        //not continue attempts if timeout
-        if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+        //not continue attempts if timeout, but a dropped connection is not a timeout
+        if ((err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') && !err.connectionReset) {
           break;
         } else if (err.code === 'EMSGSIZE') {
           res = constants.CONVERT_LIMITS;
@@ -543,10 +571,6 @@ function* downloadFile(ctx, uri, fileFrom, withAuthorization, isInJwtToken, opt_
           yield utils.sleep(tenDownloadAttemptDelay);
         }
       }
-    }
-    if (constants.NO_ERROR === res) {
-      ctx.logger.debug('downloadFile complete filesize=%d sha256=%s', data.length, sha256);
-      fs.writeFileSync(fileFrom, data);
     }
   } else {
     ctx.logger.error('checkIpFilter error:url=%s;code:%s;', uri, filterStatus);
@@ -582,8 +606,9 @@ function* downloadFileFromStorage(ctx, strPath, dir, opt_specialDir) {
   for (let i = 0; i < list.length; ++i) {
     const file = list[i];
     const fileRel = storage.getRelativePath(strPath, file);
-    const data = yield storage.getObject(ctx, file, opt_specialDir);
-    fs.writeFileSync(path.join(dir, fileRel), data);
+    const {readStream} = yield storage.createReadStream(ctx, file, opt_specialDir);
+    const writeStream = fs.createWriteStream(path.join(dir, fileRel));
+    yield pipeline(readStream, writeStream);
   }
   return list.length;
 }
@@ -659,6 +684,11 @@ function* processDownloadFromStorage(ctx, dataConvert, cmd, task, tempDirs, auth
   yield changeFormatToExtendedPdf(ctx, dataConvert, cmd);
 
   if (task.getFromChanges() && !(task.getFromOrigin() || task.getFromSettings())) {
+    if (!fs.existsSync(dataConvert.fileFrom)) {
+      // the storage cache is gone, report it as temporary instead of throwing a bare ENOENT
+      ctx.logger.warn('processDownloadFromStorage empty storage cache: %s', dataConvert.fileFrom);
+      return constants.CONVERT_TEMPORARY;
+    }
     const sha256 = yield utils.checksumFile('sha256', dataConvert.fileFrom);
     if (tenEditor['binaryChanges']) {
       res = yield* processChangesBin(ctx, tempDirs, task, cmd, authorProps, sha256);
@@ -1030,8 +1060,8 @@ function* postProcess(ctx, cmd, dataConvert, tempDirs, childRes, error, isTimeou
     exitCode = childRes.status;
     exitSignal = childRes.signal;
   }
-  //CONVERT_CELLLIMITS is not an error, but an indicator that data was lost during opening (can be displayed as an error)
-  if ((0 !== exitCode && constants.CONVERT_CELLLIMITS !== -exitCode) || null !== exitSignal) {
+  //CONVERT_CELLLIMITS/CONVERT_ROWLIMITS are not errors but data-loss indicators (x2t SUCCEEDED_X2T); output is still produced
+  if ((0 !== exitCode && constants.CONVERT_CELLLIMITS !== -exitCode && constants.CONVERT_ROWLIMITS !== -exitCode) || null !== exitSignal) {
     if (-1 !== exitCodesReturn.indexOf(-exitCode)) {
       error = -exitCode;
     } else if (isTimeout) {
@@ -1213,17 +1243,28 @@ function* ExecuteTask(ctx, task) {
       let url = cmd.getUrl();
       let withAuthorization = cmd.getWithAuthorization();
       let headers;
+      let expectedDigest;
       let fileSize;
+      let wopiResource;
       const wopiParams = cmd.getWopiParams();
       if (wopiParams) {
         withAuthorization = false;
-        isInJwtToken = true;
+        // WOPI src is untrusted, keep the private-IP filter for the download and x2t
+        isInJwtToken = false;
         const fileInfo = wopiParams.commonInfo?.fileInfo;
         fileSize = fileInfo?.Size;
-        ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
+        // expectedDigest is the CheckFileInfo SHA256 captured at open; a host edit before this download surfaces as a retryable digest mismatch
+        let kind;
+        let access_token;
+        ({url, headers, expectedDigest, kind, access_token} = yield wopiUtils.getWopiFileUrl(ctx, fileInfo, wopiParams.userAuth));
+        wopiResource = {kind, access_token};
       }
-      if (undefined === fileSize || fileSize > 0) {
-        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers);
+      if (wopiParams && !wopiUtils.isHttpScheme(url)) {
+        // reject non-http(s) WOPI destinations before any egress
+        ctx.logger.warn('wopi download blocked, unsupported scheme url=%s', url);
+        error = constants.CONVERT_PARAMS;
+      } else if (undefined === fileSize || fileSize > 0) {
+        error = yield* downloadFile(ctx, url, dataConvert.fileFrom, withAuthorization, isInJwtToken, headers, expectedDigest, wopiResource);
       }
       if (constants.NO_ERROR === error) {
         replaceEmptyFile(ctx, dataConvert.fileFrom, format, cmd.getLCID());
@@ -1439,3 +1480,4 @@ exports.createRunner = createRunner;
 exports.simulateErrorResponse = simulateErrorResponse;
 exports.run = run;
 exports._receiveTaskSetTimeoutForTesting = receiveTaskSetTimeout;
+exports._ExecuteTaskForTesting = ExecuteTask;

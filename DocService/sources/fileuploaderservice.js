@@ -42,6 +42,7 @@ const utils = require('./../../Common/sources/utils');
 const storageBase = require('./../../Common/sources/storage/storage-base');
 const formatChecker = require('./../../Common/sources/formatchecker');
 const commonDefines = require('./../../Common/sources/commondefines');
+const constants = require('./../../Common/sources/constants');
 const operationContext = require('./../../Common/sources/operationContext');
 const config = require('config');
 
@@ -87,10 +88,13 @@ exports.uploadImageFile = function (req, res) {
       const tenImageSize = ctx.getCfg('services.CoAuthoring.server.limits_image_size', cfgImageSize);
       const tenTypesUpload = ctx.getCfg('services.CoAuthoring.utils.limits_image_types_upload', cfgTypesUpload);
 
-      let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, 'Authorization', 'Bearer ', commonDefines.c_oAscSecretType.Session);
+      let checkJwtRes = yield docsCoServer.checkJwtHeader(ctx, req, constants.JWT_PURPOSE_EDITOR_SESSION, {
+        header: 'Authorization',
+        prefix: 'Bearer '
+      });
       if (!checkJwtRes) {
         //todo remove compatibility with previous versions
-        checkJwtRes = yield docsCoServer.checkJwt(ctx, req.query['token'], commonDefines.c_oAscSecretType.Session);
+        checkJwtRes = yield docsCoServer.checkJwt(ctx, req.query['token'], constants.JWT_PURPOSE_EDITOR_SESSION);
       }
       const transformedRes = checkJwtUploadTransformRes(ctx, 'uploadImageFile', checkJwtRes);
       if (!transformedRes.err) {

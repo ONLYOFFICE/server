@@ -2,99 +2,54 @@
 
 [![License](https://img.shields.io/badge/License-GNU%20AGPL%20V3-green.svg?style=flat)](https://www.gnu.org/licenses/agpl-3.0.en.html)
 
-The backend server software layer which is the part of [ONLYOFFICE Document Server][2] and is the base for all other components.
+The backend layer of [ONLYOFFICE Docs][2]. It contains the Node.js services that the editors talk to: the co-authoring document service, file conversion dispatch and metrics, together with the shared `Common` library and default configuration.
 
-## Document service set up
+In the full ONLYOFFICE Docs source tree this repository corresponds to the `server` component. The product build, native binaries, editor UI and packaging are assembled by the parent DocumentServer build pipeline.
 
-This instruction describes document service deployment for Windows based platform.
+## Repository layout
 
-### Installing necessary components
+- `DocService` — co-authoring server, file API, converter dispatch and admin endpoints.
+- `FileConverter` — wrapper around the document conversion binary.
+- `Metrics` — StatsD-based metrics exporter.
+- `Common` — shared sources and configuration files used by every service.
+- `branding/welcome` — example welcome pages shipped with a fresh installation.
 
-For the document service to work correctly it is necessary to install the following components for your Windows system (if not specified additionally, the latest version for 32 or 64 bit Windows can be installed with default settings):
+This repository holds the Node.js sources only. It is not the build root for ONLYOFFICE Docs: the binary distribution (runtime, system service, packaging) is assembled separately.
 
-1. [Node.js](https://nodejs.org/en/download/) version 8.0.0 or later
+## Runtime entry points
 
-2. [Java](https://java.com/en/download/). Necessary for the sdk build.
+- `docservice`: starts the co-authoring HTTP/WebSocket service from `DocService/sources/server.js`.
+- `fileconverter`: starts the converter worker master from `FileConverter/sources/convertermaster.js`.
 
-3. Database (MySQL or PostgreSQL). When installing use the `onlyoffice` password for the `root` user.
+## Configuration
 
-   - [MySQL Server](http://dev.mysql.com/downloads/windows/installer/) version 5.5 or later
+Configuration is layered with [node-config](https://github.com/lorenwest/node-config). All config files live in `Common/config`:
 
-   - [PostgreSQL Server](https://www.postgresql.org/download/) version 9.1 or later
+- `default.json` — defaults shared by every deployment.
+- `production-linux.json` / `production-windows.json` — production overrides per platform.
+- `development-linux.json` / `development-windows.json` / `development-mac.json` — overrides used in development.
 
-4. [Erlang](https://www.erlang.org/download.html)
+To change settings locally without modifying the tracked files, create a `local.json` under `Common/config`.
 
-5. [RabbitMQ](https://www.rabbitmq.com/releases/rabbitmq-server/v3.5.4/rabbitmq-server-3.5.4.exe)
+Runtime changes can also be stored in the `runtime.json` file referenced by `runtimeConfig.filePath`; packaged deployments should keep it in the persistent data directory so these settings survive application updates.
 
-6. [Redis](https://github.com/microsoftarchive/redis/releases/latest)
+## Development notes
 
-7. [Python 2.7](https://www.python.org/downloads/release/python-2716/)
+Top-level npm scripts are intended for repository maintenance: installing subproject dependencies, linting, formatting and running Jest tests. `npm run build` installs dependencies for the tracked subprojects; it does not produce a complete ONLYOFFICE Docs package.
 
-8. Microsoft Visual C++ Express 2010 (necessary for the spellchecker modules build)
+Local maintenance tasks require Node.js and npm compatible with the checked-in lockfiles.
 
-### Setting up the system
+## Installation
 
-1. Database setup:
+If you just want to run ONLYOFFICE Docs Community Edition, install a packaged release using the official guide rather than building from this repository:
 
-   - Database setup for MySQL  
-     Run the `schema/mysql/createdb.sql` script for MySQL
+- Community Edition installation: <https://helpcenter.onlyoffice.com/docs/installation/community/>
 
-   - Database setup for PostgreSQL
+The packaged build provides everything required to run the server.
 
-     1. Enter in `psql` (PostgreSQL interactive terminal) with
-        login and password introduced during installation, then enter commands:
+## User feedback and support
 
-        ```sql
-        CREATE USER onlyoffice WITH PASSWORD 'onlyoffice';
-        CREATE DATABASE onlyoffice OWNER onlyoffice;
-        \c onlyoffice
-        \i 'schema/postgresql/createdb.sql';
-        ```
-
-     2. Delete from `server\Common\config\development-windows.json` option `sql`.
-
-2. Install the Web Monitor for RabbitMQ (see the details for the installation [here](https://www.rabbitmq.com/management.html))
-3. Open the command line `cmd` executable.
-4. Switch to the installation directory using the `cd /d Installation-directory/sbin` command.
-5. Run the following command:
-
-   ```powershell
-   rabbitmq-plugins.bat enable rabbitmq_management
-   ```
-
-6. The Web Monitor is located at the [http://localhost:15672/](http://localhost:15672/) address.
-   Use the `guest:guest` for the login:password combination.
-
-7. If Redis does not start or crashes after the start for some reason,
-   try to change the `maxheap` parameter in the config settings.
-   For 64 bit version of Windows 7 the config file can be found here:
-   `C:\Program Files\Redis\redis.windows-service.conf`.
-   Find the `# maxheap <bytes>` line and change it to, e.g.
-
-   ```config
-   maxheap 128MB
-   ```
-
-   and restart the service
-
-### Running the service
-
-Run the `run.bat` script to start the service.
-
-Notes
-
-All config files for the server part can be found in the `Common\config` folder
-
-- `default.json` - common config files similar for all production versions.
-- `production-windows.json` - config files for the production version running on a Windows based platform.
-- `production-linux.json` - config files for the production version running on a Linux based platform.
-- `development-windows.json` - config files for the development version running on a Windows based platform (this configuration is used when running the 'run.bat' script).
-
-In case it is necessary to temporarily edit the config files, create the local.json file and reassign the values there. It will allow to prevent from uploading local changes and losing config files when updating the repository. See [Configuration Files](https://github.com/lorenwest/node-config/wiki/Configuration-Files) for more information about the configuration files.
-
-## User Feedback and Support
-
-If you have any problems with or questions about [ONLYOFFICE Document Server][2], please visit our official forum to find answers to your questions: [forum.onlyoffice.com][1] or you can ask and answer ONLYOFFICE development questions on [Stack Overflow][3].
+Questions about [ONLYOFFICE Docs][2] are best asked on the official forum: [forum.onlyoffice.com][1]. Development questions can also be tagged on [Stack Overflow][3].
 
 [1]: https://forum.onlyoffice.com
 [2]: https://github.com/ONLYOFFICE/DocumentServer
@@ -102,4 +57,4 @@ If you have any problems with or questions about [ONLYOFFICE Document Server][2]
 
 ## License
 
-Server is released under an GNU AGPL v3.0 license. See the LICENSE file for more information.
+Server is released under the GNU AGPL v3.0. See the `LICENSE.txt` file for details.

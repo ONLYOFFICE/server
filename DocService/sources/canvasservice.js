@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 'use strict';
 const crypto = require('crypto');
 const pathModule = require('path');
@@ -46,9 +45,11 @@ const sqlBase = require('./databaseConnectors/baseConnector');
 const utilsDocService = require('./utilsDocService');
 const docsCoServer = require('./DocsCoServer');
 const taskResult = require('./taskresult');
+const documentRecovery = require('./documentRecovery');
 const newFileTemplateUtils = require('./newFileTemplateUtils');
 const wopiUtils = require('./wopiUtils');
 const wopiClient = require('./wopiClient');
+const wopiEgress = require('./wopiEgress');
 const utils = require('./../../Common/sources/utils');
 const constants = require('./../../Common/sources/constants');
 const commonDefines = require('./../../Common/sources/commondefines');
@@ -377,14 +378,39 @@ function addPasswordToCmd(ctx, cmd, docPasswordStr, originFormat) {
 function addOriginFormat(ctx, cmd, row) {
   cmd.setOriginFormat(row && row.change_id);
 }
-function setDelimiterByOutputFormat(cmd) {
-  // todo: delimiter should be persisted in db on open and read from row here,
-  // instead of being inferred from output format (loses user-specified delimiter for csv)
+function setDelimiterByOutputFormat(ctx, cmd, row) {
   const outputFormat = cmd.getOutputFormat();
   if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_TSV) {
     cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Tab);
   } else if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_SCSV) {
     cmd.setDelimiter(commonDefines.c_oAscCsvDelimiter.Semicolon);
+  } else if (outputFormat === constants.AVS_OFFICESTUDIO_FILE_SPREADSHEET_CSV) {
+    //csv carries no delimiter in its extension, so restore the one picked on open instead of the converter default
+    const csvDelimiter = row && sqlBase.DocumentAdditional.prototype.getCsvDelimiter(row.additional);
+    if (csvDelimiter) {
+      ctx.logger.debug('setDelimiterByOutputFormat from open params: %j', csvDelimiter);
+      cmd.setDelimiter(csvDelimiter.delimiter);
+      cmd.setDelimiterChar(csvDelimiter.delimiterChar);
+    }
+  }
+}
+//store the delimiter chosen in the open dialog, assembly from changes has no other source for it
+async function saveCsvDelimiter(ctx, cmd) {
+  const delimiter = cmd.getDelimiter();
+  const delimiterChar = cmd.getDelimiterChar();
+  if (undefined === delimiter && undefined === delimiterChar) {
+    return;
+  }
+  const task = new taskResult.TaskResultData();
+  task.tenant = ctx.tenant;
+  task.key = cmd.getDocId();
+  //update appends to the column, so pass the new entry only
+  task.additional = sqlBase.DocumentAdditional.prototype.setCsvDelimiter(delimiter, delimiterChar);
+  try {
+    await taskResult.update(ctx, task);
+  } catch (e) {
+    //failure to persist optional open parameters must not fail an already queued reopen
+    ctx.logger.warn('saveCsvDelimiter error: %s', e.stack);
   }
 }
 
@@ -649,6 +675,7 @@ function* commandReopen(ctx, conn, cmd, outputData) {
       dataQueue.setToFile('Editor.bin');
       dataQueue.setFromSettings(true);
       yield* docsCoServer.addTask(dataQueue, constants.QUEUE_PRIORITY_HIGH);
+      yield saveCsvDelimiter(ctx, cmd);
     } else {
       outputData.setStatus('needpassword');
       outputData.setData(constants.CONVERT_PASSWORD);
@@ -711,10 +738,10 @@ const commandSfctByCmd = co.wrap(function* (ctx, cmd, opt_priority, opt_expirati
   yield* addRandomKeyTaskCmd(ctx, cmd);
   addPasswordToCmd(ctx, cmd, row.password, row.change_id);
   addOriginFormat(ctx, cmd, row);
-  setDelimiterByOutputFormat(cmd);
   const userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
   cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
   cmd.setOutputFormat(changeFormatByOrigin(ctx, row, cmd.getOutputFormat()));
+  setDelimiterByOutputFormat(ctx, cmd, row);
   cmd.appendJsonParams(getOpenedAtJSONParams(row));
   const queueData = getSaveTask(ctx, cmd);
   queueData.setFromChanges(true);
@@ -756,7 +783,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
   const token = cmd.getTokenDownload();
   if (tenTokenEnableBrowser && token) {
     // allow requests without token
-    const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Browser);
+    const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, constants.JWT_PURPOSE_BROWSER_IMGURLS);
     if (checkJwtRes.decoded) {
       //todo multiple url case
       if (checkJwtRes.decoded.images) {
@@ -769,7 +796,7 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
       for (let i = 0; i < urls.length; ++i) {
         if (utils.canIncludeOutboxAuthorization(ctx, urls[i])) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorizations[i] = [utils.fillJwtForRequest(ctx, {url: urls[i]}, secret, false)];
+          authorizations[i] = [utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_DOWNLOAD, {url: urls[i]}, secret, false)];
         }
       }
       isInJwtToken = true;
@@ -817,7 +844,12 @@ function* commandImgurls(ctx, conn, cmd, outputData) {
             }
           }
           //todo stream
-          const getRes = yield utils.downloadUrlPromise(ctx, urlSource, tenImageDownloadTimeout, tenImageSize, authorizations[i], isInJwtToken);
+          const getRes = yield utils.downloadUrlPromise(ctx, urlSource, {
+            timeout: tenImageDownloadTimeout,
+            limit: tenImageSize,
+            authorization: authorizations[i],
+            isInJwtToken
+          });
           data = getRes.body;
           urlParsed = urlModule.parse(urlSource);
         } catch (e) {
@@ -1040,6 +1072,99 @@ function checkAndFixAuthorizationLength(authorization, data) {
   }
   return res;
 }
+// Free the row with the marker so the changes stay recoverable by the next attempt
+async function releaseAssemblyRecovery(ctx, updateMask) {
+  const releaseTask = new taskResult.TaskResultData();
+  documentRecovery.markAssemblyRecovery(releaseTask);
+  return await taskResult.updateIf(ctx, releaseTask, updateMask);
+}
+// Best-effort presence/wopi cleanup, then the final DB transition that must not depend on it
+async function finalizeForgottenCopy(ctx, docId, updateMask, isStored, opt_userIndex) {
+  if (!isStored) {
+    // a failed copy releases the row and touches nothing else: presence and locks are as they were before the claim
+    const releaseRes = await releaseAssemblyRecovery(ctx, updateMask);
+    ctx.logger.warn('storeForgotten failed, changes kept: release affectedRows=%d', releaseRes.affectedRows);
+    return;
+  }
+  // the conditional delete is also the last ownership check: a miss means a new owner whose state must stay untouched
+  const cleanupRes = await cleanupCacheIf(ctx, updateMask);
+  ctx.logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
+  if (!cleanupRes) {
+    return;
+  }
+  // residue cleanup of the removed document is best-effort: each step runs even when the previous one failed
+  try {
+    //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
+    await docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten cleanup: %s', err.stack);
+  }
+  try {
+    if (docsCoServer.getIsPreStop() && docsCoServer?.editorStatProxy?.deleteKey) {
+      await docsCoServer.editorStatProxy.deleteKey(docId);
+    }
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten cleanup: %s', err.stack);
+  }
+  try {
+    //to unlock wopi file
+    await docsCoServer.unlockWopiDoc(ctx, docId, opt_userIndex);
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten cleanup: %s', err.stack);
+  }
+}
+// Silent recovery result: proves ownership by token, parks the output in forgotten and never enters the callback path
+async function handleSaveToForgottenResult(ctx, cmd) {
+  const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
+  const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
+  const docId = cmd.getDocId();
+  const statusInfo = cmd.getStatusInfo();
+  const isError = constants.NO_ERROR != statusInfo;
+  const isErrorCorrupted = constants.CONVERT_CORRUPTED == statusInfo;
+  const userIndex = cmd.getUserIndex() || cmd.getUserActionIndex();
+  const selectRes = await taskResult.select(ctx, docId);
+  const row = selectRes.length > 0 ? selectRes[0] : null;
+  if (!row || commonDefines.FileStatus.SaveVersion !== row.status || cmd.getStatusInfoIn() !== row.status_info) {
+    // a lost token means a later recovery or an editor took the row over, so this result is dropped
+    ctx.logger.warn('commandSfcCallback saveToForgotten result ignored: status = %s', row && row.status);
+    return undefined;
+  }
+  const updateMask = new taskResult.TaskResultData();
+  updateMask.tenant = ctx.tenant;
+  updateMask.key = docId;
+  updateMask.status = row.status;
+  updateMask.statusInfo = row.status_info;
+  if (isError && !isErrorCorrupted) {
+    // no usable output: keep the changes and free the row for the next attempt
+    const releaseRes = await releaseAssemblyRecovery(ctx, updateMask);
+    ctx.logger.warn('commandSfcCallback saveToForgotten assembly error, changes kept: release affectedRows=%d', releaseRes.affectedRows);
+    return undefined;
+  }
+  // the output goes to forgotten only after a second CAS proves this result still owns the row
+  const claimTask = new taskResult.TaskResultData();
+  claimTask.status = commonDefines.FileStatus.SaveVersion;
+  // minutes since the epoch never collide with the milliseconds-of-hour token that started the save
+  claimTask.statusInfo = Math.floor(Date.now() / 60000);
+  const updateIfRes = await taskResult.updateIf(ctx, claimTask, updateMask);
+  if (!(updateIfRes.affectedRows > 0)) {
+    ctx.logger.warn('commandSfcCallback saveToForgotten lost the row before the forgotten copy');
+    return undefined;
+  }
+  updateMask.statusInfo = claimTask.statusInfo;
+  ctx.logger.debug('commandSfcCallback saveToForgotten claimed: statusInfo = %d', claimTask.statusInfo);
+  let isStored = false;
+  try {
+    ctx.logger.warn('storeForgotten');
+    const savePathDoc = docId + cmd.getSaveKey() + '/' + cmd.getOutputPath();
+    const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
+    await storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+    isStored = true;
+  } catch (err) {
+    ctx.logger.error('Error storeForgotten: %s', err.stack);
+  }
+  await finalizeForgottenCopy(ctx, docId, updateMask, isStored, userIndex);
+  return undefined;
+}
 const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
   const tenForgottenFiles = ctx.getCfg('services.CoAuthoring.server.forgottenfiles', cfgForgottenFiles);
   const tenForgottenFilesName = ctx.getCfg('services.CoAuthoring.server.forgottenfilesname', cfgForgottenFilesName);
@@ -1057,6 +1182,10 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
   let isSfcSuccess = false;
   let needRetry = false;
   let needUpdateVersionEvent = !isSfcm && !isEncrypted;
+  // a recovery result never reaches the integrator: it is handled whole by the silent branch
+  if (!isSfcm && !isEncrypted && true === cmd.getSaveToForgotten()) {
+    return yield handleSaveToForgottenResult(ctx, cmd);
+  }
   if (constants.EDITOR_CHANGES !== statusInfo || isSfcm) {
     const saveKey = docId + cmd.getSaveKey();
     let isError = constants.NO_ERROR != statusInfo;
@@ -1068,13 +1197,18 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
     const forceSaveType = forceSave ? forceSave.getType() : commonDefines.c_oAscForceSaveTypes.Command;
     const forceSaveUserId = forceSave ? forceSave.getAuthorUserId() : undefined;
     const forceSaveUserIndex = forceSave ? forceSave.getAuthorUserIndex() : undefined;
-    const callbackUserIndex = forceSaveUserIndex || 0 === forceSaveUserIndex ? forceSaveUserIndex : userLastChangeIndex;
+    const hasForceSaveAuthor = forceSaveUserIndex || 0 === forceSaveUserIndex;
+    const callbackUserIndex = hasForceSaveAuthor ? forceSaveUserIndex : userLastChangeIndex;
+    const exactCallback =
+      hasForceSaveAuthor &&
+      (commonDefines.c_oAscForceSaveTypes.Button === forceSaveType || commonDefines.c_oAscForceSaveTypes.Form === forceSaveType);
     let uri, baseUrl, wopiParams, lastOpenDate;
     const selectRes = yield taskResult.select(ctx, docId);
     const row = selectRes.length > 0 ? selectRes[0] : null;
     if (row) {
       if (row.callback) {
-        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, callbackUserIndex);
+        //a user-initiated forcesave goes only to its author's callback; timers keep their existing fallback
+        uri = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback, callbackUserIndex, exactCallback);
         wopiParams = wopiClient.parseWopiCallback(ctx, uri, row.callback);
       }
       if (row.baseurl) {
@@ -1195,8 +1329,15 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       if (isSfcm) {
         const selectRes = yield taskResult.select(ctx, docId);
         const row = selectRes.length > 0 ? selectRes[0] : null;
-        //send only if FileStatus.Ok to prevent forcesave after final save
-        if (row && row.status == commonDefines.FileStatus.Ok) {
+        //an encrypted document is never assembled on the server, so its row stays at None for the whole editing session
+        const isLive = row && (commonDefines.FileStatus.Ok == row.status || (isEncrypted && commonDefines.FileStatus.None == row.status));
+        //send only for a live document to prevent forcesave after final save
+        //form submit is a separate integrator event, not a document version, so deliver it even after final save
+        const isFormSubmit = forceSaveType === commonDefines.c_oAscForceSaveTypes.Form;
+        if (isLive || (row && isFormSubmit)) {
+          if (!isLive) {
+            ctx.logger.debug('commandSfcCallback form submit after final save: status = %d', row.status);
+          }
           if (forceSave) {
             const forceSaveDate = forceSave.getTime() ? new Date(forceSave.getTime()) : new Date();
             outputSfc.setForceSaveType(forceSaveType);
@@ -1232,6 +1373,8 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
               ctx.logger.error('sendServerRequest error: url = %s;data = %j %s', uri, outputSfc, err.stack);
             }
           }
+        } else {
+          ctx.logger.warn('commandSfcCallback skip forcesave, document is not live: type = %d; status = %s', forceSaveType, row && row.status);
         }
       } else {
         //if anybody in document stop save
@@ -1282,7 +1425,8 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
             if (replyData && commonDefines.c_oAscServerCommandErrors.NoError != replyData.error) {
               ctx.logger.warn('sendServerRequest returned an error: data = %s', replyStr);
             }
-            if (requestRes) {
+            // A callback ACK for Corrupted only confirms handling; a missing assembly output is still not a successful save.
+            if (requestRes && (!isError || isErrorCorrupted)) {
               isSfcSuccess = true;
               updateIfTask = undefined;
               yield docsCoServer.cleanDocumentOnExitPromise(ctx, docId, true, callbackUserIndex);
@@ -1298,7 +1442,7 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
                   clientStatsD.timing('coauth.saveAfterEditingSessionClosed', time);
                 }
               }
-            } else {
+            } else if (!requestRes) {
               storeForgotten = true;
             }
           } else {
@@ -1314,6 +1458,13 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       storeForgotten = true;
     }
     if (undefined !== updateIfTask && !isSfcm) {
+      // Terminal assembly error with no retry: release SaveVersion (no new open conversion), keep pending changes for replay.
+      const isTerminalAssemblyError =
+        commonDefines.FileStatus.SaveVersion === recoverTask.status && !needRetry && !isEncrypted && isError && !isErrorCorrupted;
+      if (isTerminalAssemblyError) {
+        ctx.logger.warn('commandSfcCallback release SaveVersion after assembly error without output: statusInfo = %d', statusInfo);
+        documentRecovery.markAssemblyRecovery(recoverTask);
+      }
       ctx.logger.debug('commandSfcCallback restore %d status', recoverTask.status);
       updateIfTask.status = recoverTask.status;
       updateIfTask.statusInfo = recoverTask.statusInfo;
@@ -1326,25 +1477,18 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
       }
     }
     if (storeForgotten && !needRetry && !isEncrypted && (!isError || isErrorCorrupted)) {
+      let isStored = false;
       try {
         ctx.logger.warn('storeForgotten');
         const forgottenName = tenForgottenFilesName + pathModule.extname(cmd.getOutputPath());
         yield storage.copyObject(ctx, savePathDoc, docId + '/' + forgottenName, undefined, tenForgottenFiles);
+        isStored = true;
       } catch (err) {
         ctx.logger.error('Error storeForgotten: %s', err.stack);
       }
       if (!isSfcm) {
         //todo simultaneous opening
-        //clean redis (redisKeyPresenceSet and redisKeyPresenceHash removed with last element)
-        yield docsCoServer.editorData.cleanDocumentOnExit(ctx, docId);
-        if (docsCoServer.getIsPreStop() && docsCoServer?.editorStatProxy?.deleteKey) {
-          yield docsCoServer.editorStatProxy.deleteKey(docId);
-        }
-        //to unlock wopi file
-        yield docsCoServer.unlockWopiDoc(ctx, docId, callbackUserIndex);
-        //cleanupRes can be false in case of simultaneous opening. it is OK
-        const cleanupRes = yield cleanupCacheIf(ctx, updateMask);
-        ctx.logger.debug('storeForgotten cleanupRes=%s', cleanupRes);
+        yield finalizeForgottenCopy(ctx, docId, updateMask, isStored, callbackUserIndex);
       }
     }
     if (forceSave) {
@@ -1379,12 +1523,12 @@ const commandSfcCallback = co.wrap(function* (ctx, cmd, isSfcm, isEncrypted) {
 function* processWopiPutFile(ctx, docId, wopiParams, savePathDoc, userLastChangeId, isModifiedByUser, isAutosave, isExitSave) {
   let res = '{"error": 1}';
   const metadata = yield storage.headObject(ctx, savePathDoc);
-  const streamObj = yield storage.createReadStream(ctx, savePathDoc);
+  const streamFactory = () => storage.createReadStream(ctx, savePathDoc);
   const postRes = yield wopiClient.putFile(
     ctx,
     wopiParams,
     null,
-    streamObj.readStream,
+    streamFactory,
     metadata.ContentLength,
     userLastChangeId,
     isModifiedByUser,
@@ -1550,7 +1694,7 @@ exports.downloadAs = function (req, res) {
       if (tenTokenEnableBrowser || cmd.getTokenDownload() || cmd.getTokenSession()) {
         let isValidJwt = false;
         if (cmd.getTokenDownload()) {
-          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), commonDefines.c_oAscSecretType.Browser);
+          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenDownload(), constants.JWT_PURPOSE_BROWSER_DOWNLOADAS);
           if (checkJwtRes.decoded) {
             isValidJwt = true;
             cmd.setFormat(checkJwtRes.decoded.fileType);
@@ -1560,7 +1704,7 @@ exports.downloadAs = function (req, res) {
             ctx.logger.warn('Error downloadAs jwt: %s', checkJwtRes.description);
           }
         } else {
-          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+          const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), constants.JWT_PURPOSE_EDITOR_SESSION);
           if (checkJwtRes.decoded) {
             const decoded = checkJwtRes.decoded;
             const doc = checkJwtRes.decoded.document;
@@ -1620,6 +1764,31 @@ exports.downloadAs = function (req, res) {
     }
   });
 };
+//an intermediate save is requested with forcesavetype; only supported client provided types are accepted, null marks a bad value
+function getSaveFileForceSaveType(rawType) {
+  if (undefined === rawType) {
+    return undefined;
+  }
+  if (String(commonDefines.c_oAscForceSaveTypes.Button) === rawType) {
+    return commonDefines.c_oAscForceSaveTypes.Button;
+  }
+  if (String(commonDefines.c_oAscForceSaveTypes.Timeout) === rawType) {
+    return commonDefines.c_oAscForceSaveTypes.Timeout;
+  }
+  return null;
+}
+//reuse the current changes mark so an encrypted forcesave reports the same time as a server-side one
+function setSaveFileForceSave(cmd, actualForceSave, forceSaveType, tokenUser) {
+  const forceSave = new commonDefines.CForceSaveData(actualForceSave || {time: Date.now(), index: 0});
+  forceSave.setType(forceSaveType);
+  //the author comes from the session token because cmd is not signed
+  forceSave.setAuthorUserIndex(tokenUser?.index);
+  if (commonDefines.c_oAscForceSaveTypes.Button === forceSaveType) {
+    //an author turns into a ForceSaveButton action, which a timer driven save must not report
+    forceSave.setAuthorUserId(tokenUser?.id);
+  }
+  cmd.setForceSave(forceSave);
+}
 exports.saveFile = function (req, res) {
   return co(function* () {
     let docId = 'null';
@@ -1638,11 +1807,12 @@ exports.saveFile = function (req, res) {
       ctx.logger.debug('Start saveFile');
 
       let isValidJwt = false;
-      const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), commonDefines.c_oAscSecretType.Session);
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, cmd.getTokenSession(), constants.JWT_PURPOSE_EDITOR_SESSION);
       if (checkJwtRes.decoded) {
         const doc = checkJwtRes.decoded.document;
         const edit = checkJwtRes.decoded.editorConfig;
-        if (doc.ds_encrypted && !edit.ds_view && !edit.ds_isCloseCoAuthoring) {
+        //ds_view is the runtime role from the session, an absent claim must close the endpoint instead of passing as an editor
+        if (doc.ds_encrypted && false === edit.ds_view && !edit.ds_isCloseCoAuthoring) {
           isValidJwt = true;
           docId = doc.key;
           cmd.setDocId(doc.key);
@@ -1657,11 +1827,26 @@ exports.saveFile = function (req, res) {
         return;
       }
       ctx.setDocId(docId);
+      const forceSaveType = getSaveFileForceSaveType(req.query['forcesavetype']);
+      if (null === forceSaveType) {
+        ctx.logger.warn('Error saveFile: unsupported forcesavetype = %j', req.query['forcesavetype']);
+        res.sendStatus(400);
+        return;
+      }
+      //without forcesavetype the save is final and the callback gets MustSave instead of MustSaveForce
+      const isSfcm = undefined !== forceSaveType;
+      //the request owns the forcesave data: a client sent one would reach setForceSave and the rpc publish
+      cmd.setForceSave(undefined);
+      if (isSfcm) {
+        ctx.logger.debug('saveFile forcesave: type = %d', forceSaveType);
+        const actualForceSave = yield docsCoServer.editorData.getForceSave(ctx, docId);
+        setSaveFileForceSave(cmd, actualForceSave, forceSaveType, checkJwtRes.decoded.editorConfig.user);
+      }
       cmd.setStatusInfo(constants.NO_ERROR);
       yield* addRandomKeyTaskCmd(ctx, cmd);
       cmd.setOutputPath(constants.OUTPUT_NAME + pathModule.extname(cmd.getOutputPath()));
       yield storage.putObject(ctx, docId + cmd.getSaveKey() + '/' + cmd.getOutputPath(), req.body, req.body.length);
-      const replyStr = yield commandSfcCallback(ctx, cmd, false, true);
+      const replyStr = yield commandSfcCallback(ctx, cmd, isSfcm, true);
       if (replyStr) {
         utils.fillResponseSimple(res, replyStr, 'application/json');
       } else {
@@ -1683,13 +1868,14 @@ function getPrintFileUrl(ctx, docId, baseUrl, filename) {
     const tenTokenSessionExpires = ms(ctx.getCfg('services.CoAuthoring.token.session.expires', cfgTokenSessionExpires));
 
     baseUrl = utils.checkBaseUrl(ctx, baseUrl);
-    const payload = {document: {key: docId}};
+    const payload = {document: {key: docId}, ds_tokenType: 'printfile'};
+    // signed with a key derived for printfile, so this token cannot be replayed on any other session sink
     const token = yield docsCoServer.signToken(
       ctx,
+      constants.JWT_PURPOSE_PRINT_FILE,
       payload,
       tenTokenSessionAlgorithm,
-      tenTokenSessionExpires / 1000,
-      commonDefines.c_oAscSecretType.Session
+      tenTokenSessionExpires / 1000
     );
     //while save printed file Chrome's extension seems to rely on the resource name set in the URI https://stackoverflow.com/a/53593453
     //replace '/' with %2f before encodeURIComponent becase nginx determine %2f as '/' and get wrong system path
@@ -1726,10 +1912,11 @@ exports.printFile = function (req, res) {
       ctx.setDocId(docId);
       ctx.logger.info('Start printFile');
 
-      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, commonDefines.c_oAscSecretType.Session);
+      // content checks stay next to the key check: the derived key proves who signed it, docId and ds_tokenType prove what it authorizes
+      const checkJwtRes = yield docsCoServer.checkJwt(ctx, token, constants.JWT_PURPOSE_PRINT_FILE);
       if (checkJwtRes.decoded) {
-        const docIdBase = checkJwtRes.decoded.document.key;
-        if (!docId.startsWith(docIdBase)) {
+        const docIdBase = checkJwtRes.decoded.document?.key;
+        if (docId !== docIdBase || checkJwtRes.decoded.ds_tokenType !== 'printfile') {
           ctx.logger.warn('Error printFile jwt: description = %s', 'access deny');
           res.sendStatus(403);
           return;
@@ -1767,6 +1954,7 @@ exports.downloadFile = function (req, res) {
   return co(function* () {
     const ctx = new operationContext.Context();
     let stream = null;
+    let upstreamStream = null;
     try {
       let startDate = null;
       if (clientStatsD) {
@@ -1797,41 +1985,48 @@ exports.downloadFile = function (req, res) {
 
       let authorization;
       let isInJwtToken = false;
+      // marks the download as a wopi source, whose destination and redirect hops the wopi egress boundary judges
+      let isWopiSource = false;
+      let wopiKind;
+      let wopiAccessToken;
       let errorDescription;
-      let headers, fromTemplate, requestedTemplateExt;
-      const authRes = yield docsCoServer.getRequestParams(ctx, req);
+      let headers, fromTemplate, requestedTemplateExt, expectedDigest;
+      // download accepts WOPI/changesUrl/document shapes, so it is a choke point only (not marker-guarded); see checkJwtPurpose
+      const authRes = yield docsCoServer.getRequestParams(ctx, req, constants.JWT_PURPOSE_DOWNLOAD);
       if (authRes.code === constants.NO_ERROR) {
         const decoded = authRes.params;
-        if (decoded.changesUrl) {
-          url = decoded.changesUrl;
-          isInJwtToken = true;
-        } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
-          url = decoded.document.url;
-          isInJwtToken = true;
-        } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
-          url = decoded.url;
-          isInJwtToken = true;
-        } else if (wopiClient.isWopiJwtToken(decoded)) {
+        // isInJwtToken lets the download skip the private-address filter, so it must mean "this url was signed", not "some token verified"
+        const signed = authRes.signedParams;
+        if (wopiClient.isWopiJwtToken(decoded)) {
           if (decoded.fileInfo.Size === 0) {
             //editnew case
             requestedTemplateExt = pathModule.extname(decoded.fileInfo.BaseFileName).substring(1);
             fromTemplate = newFileTemplateUtils.getNewFileTemplateExt(requestedTemplateExt);
           } else {
-            ({url, headers} = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
-            const filterStatus = yield wopiClient.checkIpFilter(ctx, url);
-            if (0 === filterStatus) {
-              //todo false? (true because it passed checkIpFilter for wopi)
-              //todo use directIfIn
-              isInJwtToken = true;
-            } else {
-              errorDescription = 'access deny';
-            }
+            // a wopi source is attacker-supplied, so "we signed it" is not proof of trust; the boundary judges the destination and every hop
+            ({
+              url,
+              headers,
+              expectedDigest,
+              kind: wopiKind,
+              access_token: wopiAccessToken
+            } = yield wopiUtils.getWopiFileUrl(ctx, decoded.fileInfo, decoded.userAuth));
+            isWopiSource = true;
           }
+        } else if (decoded.changesUrl) {
+          url = decoded.changesUrl;
+          isInJwtToken = signed.changesUrl === url;
+        } else if (decoded.document && -1 !== tenDownloadFileAllowExt.indexOf(decoded.document.fileType)) {
+          url = decoded.document.url;
+          isInJwtToken = !!signed.document && signed.document.url === url;
+        } else if (decoded.url && -1 !== tenDownloadFileAllowExt.indexOf(decoded.fileType)) {
+          url = decoded.url;
+          isInJwtToken = signed.url === url;
         } else if (!tenTokenEnableBrowser) {
           //todo token required
           if (decoded.url) {
             url = decoded.url;
-            isInJwtToken = true;
+            isInJwtToken = signed.url === url;
           }
         } else {
           errorDescription = 'access deny';
@@ -1844,22 +2039,34 @@ exports.downloadFile = function (req, res) {
         res.sendStatus(403);
         return;
       }
+      // a partially signed or malformed token can leave no usable source, and url.parse would then answer with a parser error instead of a refusal
+      // provenance was established for this url only, so a privileged fetch must not follow a redirect to one nobody signed
+      const beforeRedirect = isInJwtToken ? utils.blockPrivilegedRedirect : undefined;
+      if (!fromTemplate && ('string' !== typeof url || 0 === url.length)) {
+        ctx.logger.warn('Error downloadFile: the request resolved to no source url');
+        res.sendStatus(403);
+        return;
+      }
       if (fromTemplate) {
+        // todo locale as param
         ctx.logger.debug('downloadFile from file template: requested=%s template=%s', requestedTemplateExt, fromTemplate);
         const locale = constants.TEMPLATES_DEFAULT_LOCALE;
         const fileTemplatePath = pathModule.join(tenNewFileTemplate, locale, 'new.' + fromTemplate);
         res.sendFile(pathModule.resolve(fileTemplatePath));
       } else {
-        if (utils.canIncludeOutboxAuthorization(ctx, url)) {
+        // our own credential travels with the request, so it may only be attached to a url the token named
+        if (isInJwtToken && utils.canIncludeOutboxAuthorization(ctx, url)) {
           const secret = yield tenantManager.getTenantSecret(ctx, commonDefines.c_oAscSecretType.Outbox);
-          authorization = utils.fillJwtForRequest(ctx, {url}, secret, false);
+          authorization = utils.fillJwtForRequest(ctx, constants.JWT_OUTBOUND_OPERATION_DOWNLOAD, {url}, secret, false);
         }
-        const urlParsed = urlModule.parse(url);
-        const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
-        if (0 !== filterStatus) {
-          ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
-          res.sendStatus(filterStatus);
-          return;
+        if (!isWopiSource) {
+          const urlParsed = urlModule.parse(url);
+          const filterStatus = yield* utils.checkHostFilter(ctx, urlParsed.hostname);
+          if (0 !== filterStatus) {
+            ctx.logger.warn('Error downloadFile checkIpFilter error: url = %s', url);
+            res.sendStatus(filterStatus);
+            return;
+          }
         }
 
         if (req.get('Range')) {
@@ -1869,18 +2076,20 @@ exports.downloadFile = function (req, res) {
           headers['Range'] = req.get('Range');
         }
 
-        const downloadResult = yield utils.downloadUrlPromise(
-          ctx,
-          url,
-          tenDownloadTimeout,
-          tenDownloadMaxBytes,
+        const downloadOptions = {
+          timeout: tenDownloadTimeout,
+          limit: tenDownloadMaxBytes,
           authorization,
           isInJwtToken,
-          headers,
-          true
-        );
+          expectedDigest,
+          returnStream: true
+        };
+        const downloadResult = yield isWopiSource
+          ? wopiEgress.download(ctx, url, {...downloadOptions, headers, kind: wopiKind, access_token: wopiAccessToken})
+          : utils.downloadUrlPromise(ctx, url, {...downloadOptions, headers, beforeRedirect});
         const response = downloadResult.response;
         stream = downloadResult.stream;
+        upstreamStream = response.data;
         // Sanitize Content-Disposition by removing control chars (prevents CRLF/header injection)
         if (response.headers['content-disposition']) {
           response.headers['content-disposition'] = response.headers['content-disposition'].replace(/\p{Cc}/gu, '');
@@ -1923,20 +2132,25 @@ exports.downloadFile = function (req, res) {
         }
       }
     } finally {
-      // Ensure stream is properly destroyed
-      if (stream && typeof stream.destroy === 'function') {
-        try {
-          stream.destroy();
-        } catch (destroyErr) {
-          ctx.logger.warn('Error destroying stream: %s', destroyErr.stack);
+      // pipe() does not propagate destroy, so close the upstream response too or the source server stalls until the whole cycle timeout
+      for (const streamToDestroy of [upstreamStream, stream]) {
+        if (streamToDestroy && typeof streamToDestroy.destroy === 'function') {
+          try {
+            streamToDestroy.destroy();
+          } catch (destroyErr) {
+            ctx.logger.warn('Error destroying stream: %s', destroyErr.stack);
+          }
         }
       }
       ctx.logger.info('End downloadFile');
     }
   });
 };
-exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userId, opt_userIndex, opt_userLcid, opt_queue, opt_initShardKey) {
+exports.saveFromChanges = function (ctx, docId, statusInfo, opt_options) {
+  const {format, userId, userIndex, userLcid, queue, initShardKey, saveToForgotten} = opt_options || {};
   return co(function* () {
+    let res = false;
+    let optFormat = format;
     try {
       let startDate = null;
       if (clientStatsD) {
@@ -1950,7 +2164,7 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
         if (null == optFormat) {
           optFormat = changeFormatByOrigin(ctx, row, constants.AVS_OFFICESTUDIO_FILE_OTHER_OOXML);
         }
-        if (opt_initShardKey) {
+        if (initShardKey) {
           ctx.setShardKey(sqlBase.DocumentAdditional.prototype.getShardKey(row.additional));
           ctx.setWopiSrc(sqlBase.DocumentAdditional.prototype.getWopiSrc(row.additional));
         }
@@ -1959,23 +2173,30 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
         cmd.setDocId(docId);
         cmd.setOutputFormat(optFormat);
         cmd.setStatusInfoIn(statusInfo);
-        cmd.setUserActionId(opt_userId);
-        cmd.setUserActionIndex(opt_userIndex);
+        if (saveToForgotten) {
+          cmd.setSaveToForgotten(true);
+        }
+        cmd.setUserActionId(userId);
+        cmd.setUserActionIndex(userIndex);
         cmd.appendJsonParams(getOpenedAtJSONParams(row));
         //todo lang and region are different
-        cmd.setLCID(opt_userLcid);
-        const userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
-        cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
+        cmd.setLCID(userLcid);
+        // a forgotten-only assembly must not see WOPI params: they change how the converter handles the output
+        if (!saveToForgotten) {
+          const userAuthStr = sqlBase.UserCallback.prototype.getCallbackByUserIndex(ctx, row.callback);
+          cmd.setWopiParams(wopiClient.parseWopiCallback(ctx, userAuthStr, row.callback));
+        }
         addPasswordToCmd(ctx, cmd, row && row.password, row && row.change_id);
         addOriginFormat(ctx, cmd, row);
-        setDelimiterByOutputFormat(cmd);
+        setDelimiterByOutputFormat(ctx, cmd, row);
         yield* addRandomKeyTaskCmd(ctx, cmd);
         const queueData = getSaveTask(ctx, cmd);
         queueData.setFromChanges(true);
-        yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, opt_queue);
-        if (docsCoServer.getIsShutdown()) {
+        yield* docsCoServer.addTask(queueData, constants.QUEUE_PRIORITY_NORMAL, queue);
+        if (docsCoServer.getIsShutdown() && !saveToForgotten) {
           yield docsCoServer.editorStat.addShutdown(redisKeyShutdown, docId);
         }
+        res = true;
         ctx.logger.debug('AddTask saveFromChanges');
       } else {
         if (row) {
@@ -1988,7 +2209,43 @@ exports.saveFromChanges = function (ctx, docId, statusInfo, optFormat, opt_userI
     } catch (e) {
       ctx.logger.error('Error saveFromChanges: %s', e.stack);
     }
+    return res;
   });
+};
+
+// Claim a closed document's pending changes for an assembly that lands in forgotten; the row keeps its callback
+exports.saveChangesToForgotten = async function (ctx, docId, status, statusInfo, opt_queue) {
+  const updateMask = new taskResult.TaskResultData();
+  updateMask.tenant = ctx.tenant;
+  updateMask.key = docId;
+  updateMask.status = status;
+  updateMask.statusInfo = statusInfo;
+  const updateTask = new taskResult.TaskResultData();
+  updateTask.status = commonDefines.FileStatus.SaveVersion;
+  updateTask.statusInfo = utils.getMillisecondsOfHour(new Date());
+  // a stale save is taken over with a token that differs from the one it leaves behind
+  if (updateTask.statusInfo === statusInfo) {
+    updateTask.statusInfo += 1;
+  }
+  const updateIfRes = await taskResult.updateIf(ctx, updateTask, updateMask);
+  if (!(updateIfRes.affectedRows > 0)) {
+    ctx.logger.debug('saveChangesToForgotten updateIf no effect: %s', docId);
+    return 'missed';
+  }
+  if (await exports.saveFromChanges(ctx, docId, updateTask.statusInfo, {queue: opt_queue, saveToForgotten: true})) {
+    return 'claimed';
+  }
+  // the claim must not outlive a failed enqueue: the exact token frees the row for the next run
+  updateMask.status = updateTask.status;
+  updateMask.statusInfo = updateTask.statusInfo;
+  const releaseRes = await releaseAssemblyRecovery(ctx, updateMask);
+  if (!(releaseRes.affectedRows > 0)) {
+    // a rollback miss means another owner already took the row over, so nothing here failed for good
+    ctx.logger.warn('saveChangesToForgotten enqueue failed but the row was already taken over: %s', docId);
+    return 'missed';
+  }
+  ctx.logger.warn('saveChangesToForgotten enqueue failed, changes kept: release affectedRows=%d', releaseRes.affectedRows);
+  return 'enqueueFailed';
 };
 
 async function processWopiSaveAs(ctx, cmd) {
@@ -1999,15 +2256,16 @@ async function processWopiSaveAs(ctx, cmd) {
     const suggestedExt = `.${formatChecker.getStringFromFormat(cmd.getOutputFormat())}`;
     const suggestedTarget = cmd.getSaveAsPath();
     const storageFilePath = `${cmd.getDocId()}${cmd.getSaveKey()}/${cmd.getOutputPath()}`;
-    const stream = await storage.createReadStream(ctx, storageFilePath);
+    const metadata = await storage.headObject(ctx, storageFilePath);
+    const streamFactory = () => storage.createReadStream(ctx, storageFilePath);
     const {wopiSrc, access_token} = info.wopiParams.userAuth;
     res = await wopiClient.putRelativeFile(
       ctx,
       wopiSrc,
       access_token,
       null,
-      stream.readStream,
-      stream.contentLength,
+      streamFactory,
+      metadata.ContentLength,
       suggestedExt,
       suggestedTarget,
       false

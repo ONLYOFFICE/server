@@ -297,3 +297,34 @@ describe('utilsDocService image processing', () => {
     });
   });
 });
+
+describe('utilsDocService sharp CPU compatibility', () => {
+  test('rejects a Phenom II with SSE4a but without SSSE3 or SSE4.2', () => {
+    const cpuInfo = 'processor : 0\nflags : fpu sse sse2 pni sse4a popcnt cx16 lahf_lm\n';
+    expect(utilsDocService.getMissingX64V2Flags(cpuInfo)).toEqual(['ssse3', 'sse4_1', 'sse4_2']);
+  });
+
+  test('accepts a CPU with all x86-64-v2 flags', () => {
+    const cpuInfo = 'processor : 0\nflags : fpu sse2 pni ssse3 sse4_1 sse4_2 popcnt cx16 lahf_lm avx\n';
+    expect(utilsDocService.getMissingX64V2Flags(cpuInfo)).toEqual([]);
+  });
+
+  test('requires SSE3 even when the other x86-64-v2 flags are present', () => {
+    const cpuInfo = 'processor : 0\nflags : ssse3 sse4_1 sse4_2 popcnt cx16 lahf_lm\n';
+    expect(utilsDocService.getMissingX64V2Flags(cpuInfo)).toEqual(['pni']);
+  });
+
+  test('checks every reported processor', () => {
+    const cpuInfo = [
+      'processor : 0\nflags : pni ssse3 sse4_1 sse4_2 popcnt cx16 lahf_lm',
+      'processor : 1\nflags : pni ssse3 sse4_1 popcnt cx16 lahf_lm'
+    ].join('\n\n');
+    expect(utilsDocService.getMissingX64V2Flags(cpuInfo)).toEqual(['sse4_2']);
+  });
+
+  test('treats missing CPU flags as unavailable', () => {
+    expect(utilsDocService.getMissingX64V2Flags('')).toBeNull();
+    expect(utilsDocService.getMissingX64V2Flags('processor : 0\n')).toBeNull();
+    expect(utilsDocService.getMissingX64V2Flags('processor : 0\nflags : pni ssse3 sse4_1 sse4_2 popcnt cx16 lahf_lm\nprocessor : 1\n')).toBeNull();
+  });
+});

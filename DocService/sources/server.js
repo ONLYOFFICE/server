@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 'use strict';
 
 const moduleReloader = require('./../../Common/sources/moduleReloader');
@@ -52,6 +51,7 @@ const apicache = require('apicache');
 const docsCoServer = require('./DocsCoServer');
 const canvasService = require('./canvasservice');
 const converterService = require('./converterservice');
+const convertFromFile = require('./convertFromFile');
 const fileUploaderService = require('./fileuploaderservice');
 const wopiClient = require('./wopiClient');
 const embeddedConverter = require('./embeddedConverter');
@@ -63,18 +63,24 @@ const tenantManager = require('./../../Common/sources/tenantManager');
 const staticRouter = require('./routes/static');
 const infoRouter = require('./routes/info');
 const metaRouter = require('./routes/meta');
-const ms = require('ms');
+const pluginsRouter = require('./routes/plugins');
+const baseUrlHandler = require('./routes/baseurl');
+const {handleConvertUpload, createConvertUpload} = require('./middleware/convertUpload');
+const {createBodySizeLimit, getErrorStatus, sendTooLarge} = require('./middleware/bodySizeLimit');
+const {createCheckEnable} = require('./middleware/checkEnable');
 const aiProxyHandler = require('./ai/aiProxyHandler');
 const runtimeConfigManager = require('./../../Common/sources/runtimeConfigManager');
+const {resolveConfigPath} = require('./../../Common/sources/pathUtils');
 
 const cfgWopiEnable = config.get('wopi.enable');
 const cfgWopiDummyEnable = config.get('wopi.dummy.enable');
+const cfgDocbuilderEnable = config.get('services.CoAuthoring.server.docbuilderEnable');
+const cfgConvertServiceEnable = config.get('services.CoAuthoring.server.convertServiceEnable');
 const cfgHtmlTemplate = config.get('wopi.htmlTemplate');
 const cfgTokenEnableBrowser = config.get('services.CoAuthoring.token.enable.browser');
 const cfgTokenEnableRequestInbox = config.get('services.CoAuthoring.token.enable.request.inbox');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
-const cfgLicenseFile = config.get('license.license_file');
-const cfgDownloadMaxBytes = config.get('FileConverter.converter.maxDownloadBytes');
+const cfgLicenseFile = resolveConfigPath(config.get('license.license_file'));
 
 // if (false) {
 // 	var cluster = require('cluster');
@@ -116,21 +122,23 @@ app.set('views', path.resolve(process.cwd(), cfgHtmlTemplate));
 app.set('view engine', 'ejs');
 const server = http.createServer(app);
 
-let licenseInfo, licenseOriginal, updatePluginsTime, userPlugins;
-const updatePluginsCacheExpire = ms('5m');
-
 const updatePlugins = (eventType, filename) => {
   operationContext.global.logger.info('update Folder true: %s ; %s', eventType, filename);
-  userPlugins = undefined;
+  utils.invalidateInstalledPluginsCache();
 };
-const readLicense = async function () {
-  [licenseInfo, licenseOriginal] = await license.readLicense(cfgLicenseFile);
+const readLicense = () => license.readLicense(cfgLicenseFile);
+const applyLicense = function ([licenseInfo, licenseOriginal]) {
+  tenantManager.setDefLicense(licenseInfo, licenseOriginal);
+  // expiration notices walk every tenant, so a reload waiting in the license command does not wait for them
+  docsCoServer.notifyLicenseExpirations(operationContext.global, licenseInfo).then(
+    () => operationContext.global.logger.info('End updateLicense'),
+    err => operationContext.global.logger.error('updateLicense error: %s', err.stack)
+  );
 };
-const updateLicense = async () => {
+const reloadLicense = tenantManager.createLicenseReloader(cfgLicenseFile, readLicense, applyLicense);
+const updateLicense = async force => {
   try {
-    await readLicense();
-    await docsCoServer.setLicenseInfo(operationContext.global, licenseInfo, licenseOriginal);
-    operationContext.global.logger.info('End updateLicense');
+    await reloadLicense(force);
   } catch (err) {
     operationContext.global.logger.error('updateLicense error: %s', err.stack);
   }
@@ -146,9 +154,22 @@ if (!(cfgTokenEnableBrowser && cfgTokenEnableRequestInbox && cfgTokenEnableReque
   );
 }
 
-updateLicense();
-fs.watchFile(cfgLicenseFile, updateLicense);
-setInterval(updateLicense, 86400000);
+//only the inline value is inspected: a secret file is read lazily by the runtime and must not fail the boot
+const publicSecrets = ['inbox', 'outbox', 'session'].filter(
+  name => constants.PUBLIC_DEFAULT_SECRET === config.get(`services.CoAuthoring.secret.${name}`)?.string
+);
+if (publicSecrets.length > 0) {
+  operationContext.global.logger.warn(
+    'Replace the publicly known default signing secret in the following services.CoAuthoring.secret settings: %s.',
+    publicSecrets.join(', ')
+  );
+}
+
+// the watcher polls every few seconds, so the license command also checks the file; every other trigger loads as before
+docsCoServer.setLicenseReloader(() => reloadLicense(false));
+updateLicense(true);
+fs.watchFile(cfgLicenseFile, () => updateLicense(true));
+setInterval(() => updateLicense(true), 86400000);
 
 try {
   const staticContent = config.get('services.CoAuthoring.server.static_content');
@@ -178,10 +199,12 @@ docsCoServer.install(server, app, () => {
     operationContext.global.logger.error('embeddedConverter.start error: %s', err && err.stack);
   });
 
-  server.listen(config.get('services.CoAuthoring.server.port'), () => {
+  server.listen(config.get('services.CoAuthoring.server.port'), config.get('services.CoAuthoring.server.host'), () => {
+    const address = server.address();
     operationContext.global.logger.warn(
-      'Express server listening on port %d in %s mode. Version: %s. Build: %s',
-      config.get('services.CoAuthoring.server.port'),
+      'Express server listening on %s:%d in %s mode. Version: %s. Build: %s',
+      address.address,
+      address.port,
       app.settings.env,
       commonDefines.buildVersion,
       commonDefines.buildNumber
@@ -221,23 +244,46 @@ docsCoServer.install(server, app, () => {
 
   app.use('/', staticRouter);
 
-  const rawFileParser = bodyParser.raw({
-    inflate: true,
-    limit: config.get('services.CoAuthoring.server.limits_tempfile_upload'),
-    type() {
-      return true;
-    }
-  });
-  const urleEcodedParser = bodyParser.urlencoded({extended: false});
+  const rawBodyMaxBytes = config.get('services.CoAuthoring.server.limits_tempfile_upload');
+  const rawFileParser = [
+    createBodySizeLimit(rawBodyMaxBytes),
+    bodyParser.raw({
+      inflate: true,
+      limit: rawBodyMaxBytes,
+      type() {
+        return true;
+      }
+    })
+  ];
+  const urlencodedMaxBytes = 100 * 1024;
+  const urleEcodedParser = [
+    createBodySizeLimit(urlencodedMaxBytes, 'application/x-www-form-urlencoded'),
+    bodyParser.urlencoded({extended: false, limit: urlencodedMaxBytes})
+  ];
   const forms = multer();
+  const convertToUpload = createConvertUpload(upload => upload.any());
+
+  const checkDocbuilderEnable = createCheckEnable('checkDocbuilderEnable', 403, ctx =>
+    ctx.getCfg('services.CoAuthoring.server.docbuilderEnable', cfgDocbuilderEnable)
+  );
+  const checkConvertServiceEnable = createCheckEnable('checkConvertServiceEnable', 403, ctx =>
+    ctx.getCfg('services.CoAuthoring.server.convertServiceEnable', cfgConvertServiceEnable)
+  );
+  const checkWopiEnable = createCheckEnable('checkWopiEnable', 404, ctx => ctx.getCfg('wopi.enable', cfgWopiEnable));
+  const checkWopiDummyEnable = createCheckEnable(
+    'checkWopiDummyEnable',
+    404,
+    ctx => ctx.getCfg('wopi.enable', cfgWopiEnable) && ctx.getCfg('wopi.dummy.enable', cfgWopiDummyEnable)
+  );
 
   app.get('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
   app.post('/coauthoring/CommandService.ashx', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
   app.post('/command', utils.checkClientIp, rawFileParser, docsCoServer.commandFromServer);
 
-  app.get('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
-  app.post('/ConvertService.ashx', utils.checkClientIp, rawFileParser, converterService.convertXml);
-  app.post('/converter', utils.checkClientIp, rawFileParser, converterService.convertJson);
+  app.get('/ConvertService.ashx', checkConvertServiceEnable, utils.checkClientIp, rawFileParser, converterService.convertXml);
+  app.post('/ConvertService.ashx', checkConvertServiceEnable, utils.checkClientIp, rawFileParser, converterService.convertXml);
+  app.post('/converter', checkConvertServiceEnable, utils.checkClientIp, rawFileParser, converterService.convertJson);
+  app.post('/converter/from-file', checkConvertServiceEnable, utils.checkClientIp, handleConvertUpload, convertFromFile.commandConvertFromBody);
 
   app.param('docid', (req, res, next, val) => {
     if (constants.DOC_ID_REGEX.test(val)) {
@@ -258,30 +304,20 @@ docsCoServer.install(server, app, () => {
   app.post('/downloadas/:docid', rawFileParser, canvasService.downloadAs);
   app.post('/savefile/:docid', rawFileParser, canvasService.saveFile);
   app.get('/printfile/:docid/:filename', canvasService.printFile);
-  app.get('/downloadfile/:docid', canvasService.downloadFile);
   app.post('/downloadfile/:docid', rawFileParser, canvasService.downloadFile);
   app.get('/healthcheck', utils.checkClientIp, docsCoServer.healthCheck);
 
-  app.get('/baseurl', (req, res) => {
-    const ctx = new operationContext.Context();
-    try {
-      ctx.initFromRequest(req);
-      //todo
-      // yield ctx.initTenantCache();
-      res.send(utils.getBaseUrlByRequest(ctx, req));
-    } catch (err) {
-      ctx.logger.error('baseurl error: %s', err.stack);
-    }
-  });
+  app.get('/baseurl', baseUrlHandler);
 
   app.get('/robots.txt', (req, res) => {
     res.setHeader('Content-Type', 'plain/text');
     res.send('User-agent: *\nDisallow: /');
   });
 
-  app.post('/docbuilder', utils.checkClientIp, rawFileParser, (req, res) => {
+  app.post('/docbuilder', checkDocbuilderEnable, utils.checkClientIp, rawFileParser, (req, res) => {
     converterService.builder(req, res);
   });
+  app.post('/docbuilder/from-file', checkDocbuilderEnable, utils.checkClientIp, handleConvertUpload, convertFromFile.builderFromFile);
   // Shared Info router (provides /info.json)
   app.use('/info', infoRouter(docsCoServer.getConnections));
   app.put('/internal/cluster/inactive', utils.checkClientIp, docsCoServer.shutdown);
@@ -292,51 +328,11 @@ docsCoServer.install(server, app, () => {
 
   app.get('/internal/connections/edit', docsCoServer.getEditorConnectionsCount);
 
-  function checkWopiEnable(req, res, next) {
-    //todo may be move code into wopiClient or wopiClient.discovery...
-    const ctx = new operationContext.Context();
-    ctx.initFromRequest(req);
-    ctx
-      .initTenantCache()
-      .then(() => {
-        const tenWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
-        if (tenWopiEnable) {
-          next();
-        } else {
-          res.sendStatus(404);
-        }
-      })
-      .catch(err => {
-        ctx.logger.error('checkWopiEnable error: %s', err.stack);
-        res.sendStatus(404);
-      });
-  }
-  function checkWopiDummyEnable(req, res, next) {
-    //todo may be move code into wopiClient or wopiClient.discovery...
-    const ctx = new operationContext.Context();
-    ctx.initFromRequest(req);
-    ctx
-      .initTenantCache()
-      .then(() => {
-        const tenWopiEnable = ctx.getCfg('wopi.enable', cfgWopiEnable);
-        const tenWopiDummyEnable = ctx.getCfg('wopi.dummy.enable', cfgWopiDummyEnable);
-        if (tenWopiEnable && tenWopiDummyEnable) {
-          next();
-        } else {
-          res.sendStatus(404);
-        }
-      })
-      .catch(err => {
-        ctx.logger.error('checkWopiDummyEnable error: %s', err.stack);
-        res.sendStatus(404);
-      });
-  }
   //todo dest
-  const fileForms = multer({limits: {fieldSize: cfgDownloadMaxBytes}});
   app.get('/hosting/discovery', checkWopiEnable, utils.checkClientIp, wopiClient.discovery);
   app.get('/hosting/capabilities', checkWopiEnable, utils.checkClientIp, wopiClient.collaboraCapabilities);
-  app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
-  app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, fileForms.any(), converterService.convertTo);
+  app.post('/lool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, convertToUpload, converterService.convertTo);
+  app.post('/cool/convert-to/:format?', checkWopiEnable, utils.checkClientIp, urleEcodedParser, convertToUpload, converterService.convertTo);
   app.post(
     '/hosting/wopi/:documentType/:mode',
     checkWopiEnable,
@@ -366,55 +362,7 @@ docsCoServer.install(server, app, () => {
     utils.fillResponseSimple(res, JSON.stringify({error: 0}), 'application/json');
   });
 
-  const sendUserPlugins = (res, data) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(data));
-  };
-  app.get('/plugins.json', (req, res) => {
-    //fs.watch is not reliable. Set cache expiry time
-    if (userPlugins && new Date() - updatePluginsTime < updatePluginsCacheExpire) {
-      sendUserPlugins(res, userPlugins);
-      return;
-    }
-
-    if (!config.has('services.CoAuthoring.server.static_content') || !config.has('services.CoAuthoring.plugins.uri')) {
-      res.sendStatus(404);
-      return;
-    }
-
-    const staticContent = config.get('services.CoAuthoring.server.static_content');
-    const pluginsUri = config.get('services.CoAuthoring.plugins.uri');
-    let pluginsPath = undefined;
-    const pluginsAutostart = config.get('services.CoAuthoring.plugins.autostart');
-
-    if (staticContent[pluginsUri]) {
-      pluginsPath = staticContent[pluginsUri].path;
-    }
-
-    const baseUrl = '../../../..';
-    utils.listFolders(pluginsPath, true).then(values => {
-      return co(function* () {
-        const configFile = 'config.json';
-        let stats = null;
-        const result = [];
-        for (let i = 0; i < values.length; ++i) {
-          try {
-            stats = yield utils.fsStat(path.join(values[i], configFile));
-          } catch (_err) {
-            stats = null;
-          }
-
-          if (stats && stats.isFile) {
-            result.push(baseUrl + pluginsUri + '/' + path.basename(values[i]) + '/' + configFile);
-          }
-        }
-
-        updatePluginsTime = new Date();
-        userPlugins = {url: '', pluginsData: result, autostart: pluginsAutostart};
-        sendUserPlugins(res, userPlugins);
-      });
-    });
-  });
+  app.use('/plugins.json', pluginsRouter);
   app.get('/themes.json', apicache.middleware('5 minutes'), (req, res) => {
     return co(function* () {
       const themes = [];
@@ -476,6 +424,16 @@ docsCoServer.install(server, app, () => {
   app.use((err, req, res, _next) => {
     const ctx = new operationContext.Context();
     ctx.initFromRequest(req);
+    const status = getErrorStatus(err);
+    if (500 !== status) {
+      ctx.logger.warn('default error handler: %d %s', status, err.message);
+      if (413 === status) {
+        sendTooLarge(res);
+      } else {
+        res.sendStatus(status);
+      }
+      return;
+    }
     ctx.logger.error('default error handler:%s', err.stack);
     res.sendStatus(500);
   });

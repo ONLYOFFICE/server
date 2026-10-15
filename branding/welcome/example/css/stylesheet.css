@@ -1,0 +1,271 @@
+/*
+ * Copyright (C) Ascensio System SIA, 2009-2026
+ *
+ * This program is a free software product. You can redistribute it and/or
+ * modify it under the terms of the GNU Affero General Public License (AGPL)
+ * version 3 as published by the Free Software Foundation, together with the
+ * additional terms provided in the LICENSE file.
+ *
+ * This program is distributed WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. For
+ * details, see the GNU AGPL at: https://www.gnu.org/licenses/agpl-3.0.html
+ *
+ * You can contact Ascensio System SIA by email at info@onlyoffice.com
+ * or by postal mail at 20A-6 Ernesta Birznieka-Upisha Street, Riga,
+ * LV-1050, Latvia, European Union.
+ *
+ * The interactive user interfaces in modified versions of the Program
+ * are required to display Appropriate Legal Notices in accordance with
+ * Section 5 of the GNU AGPL version 3.
+ *
+ * No trademark rights are granted under this License.
+ *
+ * All non-code elements of the Product, including illustrations,
+ * icon sets, and technical writing content, are licensed under the
+ * Creative Commons Attribution-ShareAlike 4.0 International License:
+ * https://creativecommons.org/licenses/by-sa/4.0/legalcode
+ *
+ * This license applies only to such non-code elements and does not
+ * modify or replace the licensing terms applicable to the Program's
+ * source code, which remains licensed under the GNU Affero General
+ * Public License v3.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+ html {
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    background: #fff;
+    color: #333333;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 12px;
+    font-weight: normal;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    text-decoration: none;
+}
+
+div {
+    margin: 0;
+    padding: 0;
+}
+
+a, a:hover, a:visited {
+    color: #FF6F3D;
+}
+
+a:hover {
+    text-decoration: none;
+}
+
+.black-block {
+    background: #333333;
+    color: #FFFFFF;
+}
+
+.black-block .content-block {
+    background-image: url(../css/footer_help.svg), url(../css/footer_github.svg);
+    background-position: 0 64px, 100% 100px;
+    background-repeat: no-repeat;
+    box-sizing: border-box;
+    padding-left: 96px;
+}
+
+.black-block p {
+    color: #C4C4C4;
+    max-width: 736px;
+}
+
+.button {
+    background: #FF6F3D;
+    border-radius: 3px;
+    color: #FFFFFF;
+    display: inline-block;
+    font-weight: 600;
+    line-height: 133%;
+    letter-spacing: 0.04em;
+    margin-top: 24px;
+    padding: 16px 40px;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.button:hover {
+    background: #ff7a4b;
+}
+
+.content-block {
+    margin: 0 auto;
+    padding: 64px 0;
+    width: 1120px;
+}
+
+.content-block + .content-block {
+    padding-top: 0;
+}
+
+.notice_block{
+    margin: 0 auto;
+    padding: 0 0;
+    width: 1120px;
+    margin-top: 64px;
+    box-sizing: border-box;
+    
+}
+
+.notice_text {
+    font-size: 16px;
+    line-height: 160%;
+    margin: 0;
+    padding-bottom: 0px;
+    
+}
+
+.notice_margin{
+    margin-top: 8px;
+}
+
+.notice_text span {
+    font-style: italic;
+}
+
+.content-block p {
+    font-size: 16px;
+    line-height: 160%;
+    margin: 0;
+    padding-bottom: 24px;
+}
+
+.content-block pre~p {
+    margin-top: 24px;
+}
+
+.content-block p.p-small {
+    font-size: 14px;
+}
+
+.features-list{
+    font-size: 14px;
+}
+
+h1, h2, h3, h6 {
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: -0.02em;
+    line-height: 133%;
+    padding-bottom: 24px;
+}
+
+h2 {
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 133%;
+    letter-spacing: -0.02em;
+    padding-bottom: 16px;
+}
+
+h3 {
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 133%;
+}
+
+h6 {
+    font-weight: normal;
+    font-size: 18px;
+    line-height: 160%;
+}
+
+header {
+    background: #333333;
+    height: 48px;
+    margin: 0 auto;
+    width: auto;
+}
+
+header img {
+    margin: 10px 0 22px 32px;
+}
+
+.gray-block {
+    background: #F5F5F5;
+}
+
+.gray-block .content-block {
+    padding-bottom: 56px;
+}
+
+.links-block {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 0;
+}
+
+.links-block a {
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 160%;
+    margin: 0 6px 0 2px;
+}
+
+.links-block a:first-child {
+    margin-left: 0;
+}
+
+.orange-text {
+    color: #FF6F3D;
+}
+
+pre {
+    border: 1px solid #666666;
+    background-color: #F9F9F9;
+    border-radius: 3px;
+    color: #666666;
+    display: block;
+    font-family: 'Open Sans', Monaco, Andale Mono, Courier New, monospace;
+    font-weight: normal;
+    font-size: 14px;
+    line-height: 160%;
+    margin: 8px 0 0;
+    padding: 16px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+pre~h3 {
+    padding-top: 40px;
+}
+
+footer {
+    color: #AAAAAA;
+    font-size: 13px;
+    line-height: 160%;
+    margin: 0;
+    padding: 0;
+    width: auto;
+}
+
+@media screen and (max-width: 1199px) {
+    .black-block p {
+        width: 55vw;
+    }
+    .content-block {
+        width: 90.6vw;
+    }
+    .notice_block  {
+        width: 90.6vw;
+    }
+    header img {
+        margin-left: 4.8vw;
+    }
+}

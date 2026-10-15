@@ -51,9 +51,12 @@ UserCallback.prototype.delimiter = constants.CHAR_DELIMITER;
 UserCallback.prototype.toSQLInsert = function () {
   return this.delimiter + JSON.stringify(this);
 };
-UserCallback.prototype.getCallbackByUserIndex = function (ctx, callbacksStr, opt_userIndex) {
-  ctx.logger.debug('getCallbackByUserIndex: userIndex = %s callbacks = %s', opt_userIndex, callbacksStr);
-  if (!callbacksStr || !callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
+UserCallback.prototype.getCallbackByUserIndex = function (ctx, callbacksStr, opt_userIndex, opt_exact) {
+  ctx.logger.debug('getCallbackByUserIndex: userIndex = %s', opt_userIndex);
+  if (!callbacksStr) {
+    return '';
+  }
+  if (!callbacksStr.startsWith(UserCallback.prototype.delimiter)) {
     const index = callbacksStr.indexOf(UserCallback.prototype.delimiter);
     if (-1 === index) {
       //old format
@@ -63,16 +66,20 @@ UserCallback.prototype.getCallbackByUserIndex = function (ctx, callbacksStr, opt
       callbacksStr = callbacksStr.substring(index);
     }
   }
+  if (opt_exact && null == opt_userIndex) {
+    return '';
+  }
   const callbacks = callbacksStr.split(UserCallback.prototype.delimiter);
   let callbackUrl = '';
   for (let i = 1; i < callbacks.length; ++i) {
     const callback = JSON.parse(callbacks[i]);
     callbackUrl = callback.callback;
     if (callback.userIndex === opt_userIndex) {
-      break;
+      return callbackUrl;
     }
   }
-  return callbackUrl;
+  //an exact lookup never falls back to another user's callback
+  return opt_exact ? '' : callbackUrl;
 };
 UserCallback.prototype.getCallbacks = function (ctx, callbacksStr) {
   ctx.logger.debug('getCallbacks: callbacks = %s', callbacksStr);
@@ -209,6 +216,23 @@ DocumentAdditional.prototype.getShardKey = function (str) {
   val.data.forEach(elem => {
     if (elem.shardKey) {
       res = elem.shardKey;
+    }
+  });
+  return res;
+};
+
+DocumentAdditional.prototype.setCsvDelimiter = function (delimiter, delimiterChar) {
+  const additional = new DocumentAdditional();
+  additional.data.push({delimiter, delimiterChar});
+  return additional.toSQLInsert();
+};
+DocumentAdditional.prototype.getCsvDelimiter = function (str) {
+  let res;
+  const val = new DocumentAdditional();
+  val.fromString(str);
+  val.data.forEach(elem => {
+    if (undefined !== elem.delimiter || undefined !== elem.delimiterChar) {
+      res = {delimiter: elem.delimiter, delimiterChar: elem.delimiterChar};
     }
   });
   return res;

@@ -37,16 +37,14 @@ const {describe, test, expect, afterAll, beforeAll} = require('@jest/globals');
 
 const {signToken} = require('../../../DocService/sources/DocsCoServer');
 const storage = require('../../../Common/sources/storage/storage-base');
-const constants = require('../../../Common/sources/commondefines');
+const serverConstants = require('../../../Common/sources/constants');
 const operationContext = require('../../../Common/sources/operationContext');
-const utils = require('../../../Common/sources/utils');
 
 const config = require('../../../Common/node_modules/config');
 
 const cfgForgottenFiles = config.get('services.CoAuthoring.server.forgottenfiles');
 const cfgForgottenFilesName = config.get('services.CoAuthoring.server.forgottenfilesname');
 const cfgTokenAlgorithm = config.get('services.CoAuthoring.token.session.algorithm');
-const cfgSecretOutbox = config.get('services.CoAuthoring.secret.outbox');
 const cfgTokenOutboxExpires = config.get('services.CoAuthoring.token.outbox.expires');
 const cfgTokenEnableRequestOutbox = config.get('services.CoAuthoring.token.enable.request.outbox');
 const cfgStorageName = config.get('storage.name');
@@ -73,8 +71,8 @@ const testFilesNames = {
 async function makeRequest(requestBody, timeout = 5000) {
   let body = '';
   if (cfgTokenEnableRequestOutbox) {
-    const secret = utils.getSecretByElem(cfgSecretOutbox);
-    const token = await signToken(ctx, requestBody, cfgTokenAlgorithm, cfgTokenOutboxExpires, constants.c_oAscSecretType.Inbox, secret);
+    // the request goes to /command, so it is signed as a command token and the purpose picks the key
+    const token = await signToken(ctx, serverConstants.JWT_PURPOSE_COMMAND, requestBody, cfgTokenAlgorithm, cfgTokenOutboxExpires);
     body = JSON.stringify({token});
   } else {
     body = JSON.stringify(requestBody);

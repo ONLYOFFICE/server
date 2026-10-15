@@ -70,10 +70,5 @@
       "docbuilderPath": "../FileConverter/bin/docbuilder.exe",
       "signingKeyStorePath": "./../signing-keystore.p12"
     }
-  },
-  "SpellChecker": {
-    "server": {
-      "dictDir": "../../dictionaries"
-    }
   }
 }

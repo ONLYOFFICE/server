@@ -39,11 +39,9 @@ const ms = require('ms');
 
 const mailService = require('./mailService');
 
-const cfgEditorDataStorage = config.get('services.CoAuthoring.server.editorDataStorage');
-const cfgEditorStatStorage = config.get('services.CoAuthoring.server.editorStatStorage');
 const cfgSmtpServerConfiguration = config.get('email.smtpServerConfiguration');
 const cfgContactDefaults = config.get('email.contactDefaults');
-const editorStatStorage = require('./../../DocService/sources/' + (cfgEditorStatStorage || cfgEditorDataStorage));
+const {editorStatStorage} = require('./../../DocService/sources/editorDataStorage');
 
 const editorStat = editorStatStorage.EditorStat ? new editorStatStorage.EditorStat() : new editorStatStorage();
 const notificationTypes = {

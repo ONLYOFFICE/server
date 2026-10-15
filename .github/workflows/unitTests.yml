@@ -5,6 +5,7 @@ on:
       - '**'
     paths:
       - '**.js'
+      - '**/npm-shrinkwrap.json'
       - '!tests/integration/**'
       - '!DocService/sources/databaseConnectors/**'
 jobs:

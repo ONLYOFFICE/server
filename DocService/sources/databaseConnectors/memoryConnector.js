@@ -330,14 +330,6 @@ function updateIf(ctx, task, mask) {
   return Promise.resolve({affectedRows: 1});
 }
 
-function updateStatusAndClearCallback(ctx, docId, status) {
-  const row = taskResultStore.get(makeResultKey(ctx.tenant, docId));
-  if (!row) return Promise.resolve({affectedRows: 0});
-  row.status = status;
-  row.callback = '';
-  return Promise.resolve({affectedRows: 1});
-}
-
 async function restoreInitialPassword(ctx, docId) {
   const rows = await select(ctx, docId);
   if (rows.length === 0) return undefined;
@@ -442,16 +434,6 @@ function getCountWithStatus(ctx, status, expireMs) {
   return Promise.resolve(count);
 }
 
-function getEmptyCallbacks() {
-  const result = [];
-  for (const row of taskResultStore.values()) {
-    if (hasChangesForResultRow(row) && (!row.callback || row.callback === '')) {
-      result.push({tenant: row.tenant, id: row.id});
-    }
-  }
-  return Promise.resolve(result);
-}
-
 function getDocumentsWithChanges() {
   const result = [];
   for (const row of taskResultStore.values()) {
@@ -544,7 +526,6 @@ module.exports = {
   upsert,
   getExpired,
   getCountWithStatus,
-  getEmptyCallbacks,
   // Shared helpers
   healthCheck,
   getDateTime,
@@ -555,7 +536,6 @@ module.exports = {
   selectWithCache,
   update,
   updateIf,
-  updateStatusAndClearCallback,
   restoreInitialPassword,
   addRandomKeyTask,
   remove,

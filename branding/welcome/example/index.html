@@ -1,0 +1,1342 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="en" data-platform="{{WELCOME_PLATFORM}}" data-has-admin-panel="{{HAS_ADMIN_PANEL}}" data-official-product-name="{{OFFICIAL_PRODUCT_NAME}}">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!--
+    *
+    * (c) Copyright Ascensio System SIA 2009-{{year}}
+    *
+    * This program is a free software product. You can redistribute it and/or
+    * modify it under the terms of the GNU Affero General Public License (AGPL)
+    * version 3 as published by the Free Software Foundation, together with the
+    * additional terms provided in the LICENSE file.
+    *
+    * This program is distributed WITHOUT ANY WARRANTY; without even the implied
+    * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. For
+    * details, see the GNU AGPL at: https://www.gnu.org/licenses/agpl-3.0.html
+    *
+    * You can contact Ascensio System SIA by email at info@onlyoffice.com
+    * or by postal mail at 20A-6 Ernesta Birznieka-Upisha Street, Riga,
+    * LV-1050, Latvia, European Union.
+    *
+    * The interactive user interfaces in modified versions of the Program
+    * are required to display Appropriate Legal Notices in accordance with
+    * Section 5 of the GNU AGPL version 3.
+    *
+    * No trademark rights are granted under this License.
+    *
+    * All non-code elements of the Product, including illustrations,
+    * icon sets, and technical writing content, are licensed under the
+    * Creative Commons Attribution-ShareAlike 4.0 International License:
+    * https://creativecommons.org/licenses/by-sa/4.0/legalcode
+    *
+    * This license applies only to such non-code elements and does not
+    * modify or replace the licensing terms applicable to the Program's
+    * source code, which remains licensed under the GNU Affero General
+    * Public License v3.
+    *
+    * SPDX-License-Identifier: AGPL-3.0-only
+    *
+    -->
+
+    <title>ONLYOFFICE Docs {{OFFICIAL_PRODUCT_NAME}}</title>
+    <link href="css/favicon.ico" rel="shortcut icon" type="image/x-icon" />
+    <link rel="stylesheet" type="text/css" href="css/stylesheet.css" />
+    <link rel="stylesheet" type="text/css" href="css/index.css" />
+  </head>
+  <body class="welcome2">
+    <main class="welcome2__main">
+      <div class="welcome2__hero-stack">
+        <img class="welcome2__logo" src="css/logo-docs.svg" alt="ONLYOFFICE Docs" width="319" height="45" />
+
+        <section class="welcome2__hero">
+          <div class="welcome2__hero-text">
+            <h1 class="welcome2__title">ONLYOFFICE Docs installed successfully</h1>
+            <p class="welcome2__subtitle">Version {{PRODUCT_VERSION}} &middot; {{OFFICIAL_PRODUCT_NAME}} &middot; Ready to integrate</p>
+          </div>
+          <a class="welcome2__btn welcome2__btn--primary requires-admin-panel" target="_blank" rel="noopener noreferrer" href="../admin/">Admin Panel</a>
+        </section>
+      </div>
+
+      <section class="welcome2__test-example requires-test-example" data-example-state="unknown" aria-labelledby="welcome2-test-example-title">
+        <div class="welcome2__section-head">
+          <div class="welcome2__section-head-row">
+            <h2 id="welcome2-test-example-title" class="welcome2__h2">Test example</h2>
+            <span class="welcome2__status-badge" aria-live="polite">Status unknown</span>
+          </div>
+          <p class="welcome2__desc">Use the test example to verify that the online editors are working correctly.</p>
+          <p class="welcome2__desc">Test example only. Modify or disable before production.</p>
+        </div>
+
+        <ul class="welcome2__editor-grid">
+          <li>
+            <a class="welcome2__editor-card" data-test-open href="../example/editor?fileExt=docx&amp;sample=true" target="_blank" rel="noopener noreferrer">
+              <span class="welcome2__editor-art">
+                <img class="welcome2__editor-paper" src="css/docx-big.svg" alt="" width="108" height="100" aria-hidden="true" />
+                <span class="welcome2__editor-badge welcome2__editor-badge--docx" aria-hidden="true">DOCX</span>
+              </span>
+              <span class="welcome2__editor-label">Document</span>
+            </a>
+          </li>
+          <li>
+            <a class="welcome2__editor-card" data-test-open href="../example/editor?fileExt=xlsx&amp;sample=true" target="_blank" rel="noopener noreferrer">
+              <span class="welcome2__editor-art">
+                <img class="welcome2__editor-paper" src="css/xlsx-big.svg" alt="" width="108" height="100" aria-hidden="true" />
+                <span class="welcome2__editor-badge welcome2__editor-badge--xlsx" aria-hidden="true">XLSX</span>
+              </span>
+              <span class="welcome2__editor-label">Spreadsheet</span>
+            </a>
+          </li>
+          <li>
+            <a class="welcome2__editor-card" data-test-open href="../example/editor?fileExt=pptx&amp;sample=true" target="_blank" rel="noopener noreferrer">
+              <span class="welcome2__editor-art">
+                <img class="welcome2__editor-paper" src="css/pptx-big.svg" alt="" width="108" height="100" aria-hidden="true" />
+                <span class="welcome2__editor-badge welcome2__editor-badge--pptx" aria-hidden="true">PPTX</span>
+              </span>
+              <span class="welcome2__editor-label">Presentation</span>
+            </a>
+          </li>
+          <li>
+            <a class="welcome2__editor-card" data-test-open href="../example/editor?fileExt=pdf&amp;sample=true" target="_blank" rel="noopener noreferrer">
+              <span class="welcome2__editor-art">
+                <img class="welcome2__editor-paper" src="css/pdf-big.svg" alt="" width="108" height="100" aria-hidden="true" />
+                <span class="welcome2__editor-badge welcome2__editor-badge--pdf" aria-hidden="true">PDF</span>
+              </span>
+              <span class="welcome2__editor-label">PDF</span>
+            </a>
+          </li>
+        </ul>
+
+        <div class="welcome2__button-row">
+          <a class="welcome2__btn welcome2__btn--primary" data-test-open href="../example/" target="_blank" rel="noopener noreferrer">Open test example</a>
+          <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-open="welcome2-modal-test-stop">Stop test example</button>
+        </div>
+      </section>
+
+      <section class="welcome2__apps" aria-labelledby="welcome2-apps-title">
+        <div class="welcome2__section-head">
+          <div class="welcome2__section-head-row">
+            <h2 id="welcome2-apps-title" class="welcome2__h2">Expand your Docs with ONLYOFFICE apps and AI Tools</h2>
+          </div>
+        </div>
+
+        <div class="welcome2__apps-label-row">
+          <h5 class="welcome2__apps-label">ONLYOFFICE apps</h5>
+          <span id="welcome2-apps-chip" class="welcome2__chip welcome2__chip--positive">Free &amp; open source</span>
+        </div>
+
+        <ul class="welcome2__app-grid">
+          <li class="welcome2__app-card">
+            <div class="welcome2__app-head">
+              <span class="welcome2__app-icon" aria-hidden="true">
+                <img src="css/app-files.svg" alt="" width="16" height="16" />
+              </span>
+              <h4 class="welcome2__app-title">Files</h4>
+            </div>
+            <p class="welcome2__app-desc">Store, organize, and share files - for yourself or your team.</p>
+            <button type="button" class="welcome2__app-card-trigger" data-modal-open="welcome2-modal-files" aria-label="Learn more about Files"></button>
+          </li>
+          <li class="welcome2__app-card">
+            <div class="welcome2__app-head">
+              <span class="welcome2__app-icon" aria-hidden="true">
+                <img src="css/app-rooms.svg" alt="" width="16" height="16" />
+              </span>
+              <h4 class="welcome2__app-title">Rooms</h4>
+            </div>
+            <p class="welcome2__app-desc">Collaborate with others around a specific topic or project.</p>
+            <button type="button" class="welcome2__app-card-trigger" data-modal-open="welcome2-modal-rooms" aria-label="Learn more about Rooms"></button>
+          </li>
+          <li class="welcome2__app-card">
+            <div class="welcome2__app-head">
+              <span class="welcome2__app-icon" aria-hidden="true">
+                <img src="css/app-forms.svg" alt="" width="16" height="16" />
+              </span>
+              <h4 class="welcome2__app-title">Forms</h4>
+            </div>
+            <p class="welcome2__app-desc">Build forms, collect responses, and analyze structured data.</p>
+            <button type="button" class="welcome2__app-card-trigger" data-modal-open="welcome2-modal-forms" aria-label="Learn more about Forms"></button>
+          </li>
+          <li class="welcome2__app-card">
+            <div class="welcome2__app-head">
+              <span class="welcome2__app-icon" aria-hidden="true">
+                <img src="css/app-ai.svg" alt="" width="16" height="16" />
+              </span>
+              <h4 class="welcome2__app-title">AI Agents</h4>
+            </div>
+            <p class="welcome2__app-desc">Automate tasks and answer questions with custom AI agents.</p>
+            <button type="button" class="welcome2__app-card-trigger" data-modal-open="welcome2-modal-ai" aria-label="Learn more about AI Agents"></button>
+          </li>
+        </ul>
+
+        <div class="welcome2__button-row">
+          <button type="button" class="welcome2__btn welcome2__btn--primary install-open-btn" data-modal-open="welcome2-modal-install">Install free apps</button>
+          <a class="welcome2__btn welcome2__btn--primary install-open-link" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
+          <a
+            class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon"
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://github.com/ONLYOFFICE/docspace"
+          >
+            <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="17" height="16" aria-hidden="true" />
+            View on GitHub
+          </a>
+        </div>
+      </section>
+
+      <!-- Enterprise promo strip: Community edition only, gated in CSS on data-has-admin-panel. -->
+      <div class="welcome2__enterprise-promo">
+        <div class="welcome2__enterprise-promo-copy">
+          <div class="welcome2__enterprise-promo-title-row">
+            <img class="welcome2__enterprise-promo-icon" src="css/promo-gift.svg" alt="" width="16" height="16" aria-hidden="true" />
+            <span class="welcome2__enterprise-promo-title">Unlock more with Enterprise or Developer solutions</span>
+          </div>
+          <p class="welcome2__enterprise-promo-desc">Get free access to the enterprise or developer-ready office suite for 30 days.</p>
+        </div>
+        <button type="button" class="welcome2__btn welcome2__btn--primary welcome2__btn--small" data-modal-open="welcome2-modal-trial">Get started</button>
+      </div>
+
+      <section class="welcome2__accordion">
+        <button type="button" class="welcome2__accordion-head" data-extras-toggle aria-expanded="false" aria-controls="welcome2-connectors-body">
+          <span class="welcome2__accordion-head-text">
+            <span class="welcome2__accordion-head-row">
+              <span class="welcome2__accordion-title">Already using another platform?</span>
+            </span>
+            <span class="welcome2__accordion-head-desc">Plug ONLYOFFICE into any ecosystem (DMS, CMS, LMS, etc.) - no custom code, no migration.</span>
+          </span>
+          <span class="welcome2__chevron" aria-hidden="true"></span>
+        </button>
+        <div id="welcome2-connectors-body" class="welcome2__accordion-body">
+          <div class="welcome2__accordion-extras">
+            <ul class="welcome2__connector-grid">
+              <li>
+                <span class="welcome2__connector-name">Nextcloud</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/office-for-nextcloud">Connect &rarr;</a>
+              </li>
+              <li>
+                <span class="welcome2__connector-name">ownCloud</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/office-for-owncloud">Connect &rarr;</a>
+              </li>
+              <li>
+                <span class="welcome2__connector-name">Confluence</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/office-for-confluence">Connect &rarr;</a>
+              </li>
+              <li>
+                <span class="welcome2__connector-name">Alfresco</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/office-for-alfresco">Connect &rarr;</a>
+              </li>
+              <li>
+                <span class="welcome2__connector-name">Moodle</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/office-for-moodle">Connect &rarr;</a>
+              </li>
+              <li>
+                <span class="welcome2__connector-name">SharePoint</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/office-for-sharepoint">Connect &rarr;</a>
+              </li>
+              <li>
+                <span class="welcome2__connector-name">Odoo</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/office-for-odoo">Connect &rarr;</a>
+              </li>
+              <li class="welcome2__connector-more">
+                <span class="welcome2__connector-name">+20 more</span>
+                <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/all-connectors">View all &rarr;</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="welcome2__accordion">
+        <button type="button" class="welcome2__accordion-head" data-extras-toggle aria-expanded="false" aria-controls="welcome2-dev-body">
+          <span class="welcome2__accordion-head-text">
+            <span class="welcome2__accordion-head-row">
+              <span class="welcome2__accordion-title">Build with ONLYOFFICE</span>
+            </span>
+            <span class="welcome2__accordion-head-desc">Use developer tools when you need deeper integration, automation, embedding, webhooks, or API access.</span>
+          </span>
+          <span class="welcome2__chevron" aria-hidden="true"></span>
+        </button>
+        <div id="welcome2-dev-body" class="welcome2__accordion-body">
+          <div class="welcome2__accordion-extras">
+            <ul class="welcome2__dev-grid">
+              <li>
+                <div class="welcome2__dev-text">
+                  <h4 class="welcome2__dev-title">Docs API</h4>
+                  <p class="welcome2__dev-desc">Integrate ONLYOFFICE Docs into your web app and configure it to enable document editing, co-authoring, and sharing for your users.</p>
+                </div>
+                <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/docs/docs-api/get-started/basic-concepts/">Learn more &rarr;</a>
+              </li>
+              <li>
+                <div class="welcome2__dev-text">
+                  <h4 class="welcome2__dev-title">Office API</h4>
+                  <p class="welcome2__dev-desc">Use our JavaScript library to build plugins, macros, and scripts across all document types: documents, spreadsheets, presentations, and forms.</p>
+                </div>
+                <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/docs/office-api/get-started/overview/">Learn more &rarr;</a>
+              </li>
+              <li>
+                <div class="welcome2__dev-text">
+                  <h4 class="welcome2__dev-title">AI</h4>
+                  <p class="welcome2__dev-desc">Build AI-powered editor extensions that combine the plugin framework with an AI provider integration.</p>
+                </div>
+                <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/docs/ai/get-started/"
+                >Learn more &rarr;</a>
+              </li>
+              <li>
+                <div class="welcome2__dev-text">
+                  <h4 class="welcome2__dev-title">Document Builder</h4>
+                  <p class="welcome2__dev-desc">Integrate Document Builder into your DMS or CRM to generate documents directly within your workflow - no separate document editor required.</p>
+                </div>
+                <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/docs/document-builder/get-started/overview/">Learn more &rarr;</a>
+              </li>
+              <li>
+                <div class="welcome2__dev-text">
+                  <h4 class="welcome2__dev-title">Desktop Editors</h4>
+                  <p class="welcome2__dev-desc">Extend and customize ONLYOFFICE Desktop Editors by integrating with document management systems.</p>
+                </div>
+                <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/docs/desktop-editors/get-started/overview/">Learn more &rarr;</a>
+              </li>
+              <li>
+                <div class="welcome2__dev-text">
+                  <h4 class="welcome2__dev-title">Integration samples</h4>
+                  <p class="welcome2__dev-desc">Ready-to-use ONLYOFFICE Docs integration examples for different programming languages and frameworks, with setup and connection instructions.</p>
+                </div>
+                <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/docs/docs-api/samples/language-specific-examples/">Learn more &rarr;</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="welcome2__footer">
+      <div class="welcome2__footer-help">
+        <div class="welcome2__footer-help-inner">
+          <h3 class="welcome2__footer-help-title">Getting help</h3>
+          <p class="welcome2__footer-help-desc">
+            In case of any technical issues, please contact our
+            <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/support-contact-form">Support team</a>.
+            <br />
+            If you have questions about the functionality, consult our
+            <a target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/">Help Center</a>.
+            <br />
+            For any other inquiries, you are welcome to visit our
+            <a target="_blank" rel="noopener noreferrer" href="https://community.onlyoffice.com/">Forum</a>
+            and
+            <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE">GitHub</a>.
+          </p>
+        </div>
+      </div>
+      <div class="welcome2__footer-band">
+        <div class="welcome2__footer-band-inner">
+          <nav class="welcome2__footer-nav" aria-label="Resources">
+            <a target="_blank" rel="noopener noreferrer" href="https://api.onlyoffice.com/">API Documentation</a>
+            <a target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/">Help Center</a>
+            <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/support-contact-form">Support</a>
+          </nav>
+          <p class="welcome2__footer-copy">&copy; Ascensio System SIA {{year}}. All rights reserved</p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- App modals (feedback #7). Backdrop = .welcome2__overlay (feedback #12). -->
+    <div class="welcome2__overlay" id="welcome2-modal-files" hidden>
+      <div class="welcome2__modal welcome2__modal--wide welcome2__modal--app" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-files-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-files-title">Files</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="welcome2__modal-hero">
+            <h3 class="welcome2__modal-hero-title">Files: your workspace for documents</h3>
+            <p class="welcome2__modal-hero-desc">Store, organize, and share files across teams with full control and instant access.</p>
+          </div>
+          <div class="welcome2__modal-promo">
+            <ul class="welcome2__feature-list">
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-files-1.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Smart file management</span>
+                  <p class="welcome2__feature-desc">Keep documents structured with folders, versions, and metadata in one place.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-files-2.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Fast search &amp; filters</span>
+                  <p class="welcome2__feature-desc">Find any file instantly by content, type, author, date, or tags.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-files-3.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Advanced permissions</span>
+                  <p class="welcome2__feature-desc">Go beyond simple sharing with granular roles and secure access control.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-files-4.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Full access control</span>
+                  <p class="welcome2__feature-desc">Track activity with audit logs and revoke access anytime to protect sensitive data.</p>
+                </span>
+              </li>
+            </ul>
+            <div class="welcome2__modal-shot">
+              <img data-src="css/modal-files.png" alt="" width="444" height="336" />
+            </div>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
+          <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
+            <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="welcome2__overlay" id="welcome2-modal-rooms" hidden>
+      <div class="welcome2__modal welcome2__modal--wide welcome2__modal--app" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-rooms-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-rooms-title">Rooms</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="welcome2__modal-hero">
+            <h3 class="welcome2__modal-hero-title">Create Rooms and start collaborating instantly</h3>
+            <p class="welcome2__modal-hero-desc">Set up the right space for any task and get work done faster.</p>
+          </div>
+          <div class="welcome2__modal-promo">
+            <ul class="welcome2__feature-list">
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-rooms-1.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Collaboration rooms</span>
+                  <p class="welcome2__feature-desc">Co-edit documents with version control, comments, and full change tracking.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-rooms-2.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Public rooms</span>
+                  <p class="welcome2__feature-desc">Share via secure links with controlled access, no accounts required.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-rooms-3.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Virtual Data Rooms</span>
+                  <p class="welcome2__feature-desc">Protect sensitive files with watermarking, audit logs, and strict access control.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-rooms-4.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Custom rooms</span>
+                  <p class="welcome2__feature-desc">Adapt workflows and permissions for specific tasks or teams.</p>
+                </span>
+              </li>
+            </ul>
+            <div class="welcome2__modal-shot">
+              <img data-src="css/modal-rooms.png" alt="" width="444" height="336" />
+            </div>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
+          <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
+            <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="welcome2__overlay" id="welcome2-modal-forms" hidden>
+      <div class="welcome2__modal welcome2__modal--wide welcome2__modal--app welcome2__modal--forms" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-forms-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-forms-title">Forms</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="welcome2__modal-hero">
+            <h3 class="welcome2__modal-hero-title">Forms that work for you</h3>
+            <p class="welcome2__modal-hero-desc">Create, share, and analyze PDF forms - faster, smarter, all in one place.</p>
+          </div>
+          <div class="welcome2__modal-promo">
+            <ul class="welcome2__feature-list">
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-forms-1.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">AI-powered form creation</span>
+                  <p class="welcome2__feature-desc">Generate PDF forms in seconds or customize templates to save hours.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-forms-2.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Easy sharing</span>
+                  <p class="welcome2__feature-desc">Send links or embed forms anywhere, no sign-up required.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-forms-3.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Centralized data collection</span>
+                  <p class="welcome2__feature-desc">Keep responses organized, store them in your database, or export to spreadsheets anytime.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-forms-4.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Built-in insights</span>
+                  <p class="welcome2__feature-desc">Analyze responses with AI, spot patterns, and generate reports instantly.</p>
+                </span>
+              </li>
+            </ul>
+            <div class="welcome2__modal-shot">
+              <img data-src="css/modal-forms.png" alt="" width="444" height="320" />
+            </div>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
+          <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
+            <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="welcome2__overlay" id="welcome2-modal-ai" hidden>
+      <div class="welcome2__modal welcome2__modal--wide welcome2__modal--app" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-ai-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-ai-title">AI Agents</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="welcome2__modal-hero">
+            <h3 class="welcome2__modal-hero-title">AI Agents for your workspace</h3>
+            <p class="welcome2__modal-hero-desc">Automate tasks, reduce manual work, and deliver results faster - with full control over your AI.</p>
+          </div>
+          <div class="welcome2__modal-promo">
+            <ul class="welcome2__feature-list">
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-ai-1.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Generate &amp; summarize</span>
+                  <p class="welcome2__feature-desc">Create docs, slides, PDF files in seconds and cut hours of manual work.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-ai-2.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Document-aware AI</span>
+                  <p class="welcome2__feature-desc">Get precise answers instantly without searching through files.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-ai-3.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Shared AI agents</span>
+                  <p class="welcome2__feature-desc">Eliminate duplicated work and reuse knowledge across teams.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <!-- feat-ai-4.svg is the settings gear, reused verbatim from the Admin Panel modal (feat-admin-4); confirm vs Figma. -->
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-ai-4.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Custom AI stack</span>
+                  <p class="welcome2__feature-desc">Optimize costs and keep full control over your data and models.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-ai-5.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">MCP integration</span>
+                  <p class="welcome2__feature-desc">Automate workflows across tools and save time on repetitive tasks.</p>
+                </span>
+              </li>
+            </ul>
+            <div class="welcome2__modal-shot">
+              <img data-src="css/modal-ai.png" alt="" width="444" height="404" />
+            </div>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-docspace">Install free apps</a>
+          <a class="welcome2__btn welcome2__btn--ghost-light welcome2__btn--with-icon" target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/docspace">
+            <img class="welcome2__btn-icon" src="css/icon-github.svg" alt="" width="16" height="16" aria-hidden="true" />
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Install free apps modal: platform variant shown via data-platform (mirrors test-example modals). -->
+    <div class="welcome2__overlay" id="welcome2-modal-install" hidden>
+      <div class="welcome2__modal welcome2__modal--install">
+        <div class="install-variant install--docker" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-install-docker-title">
+          <div class="welcome2__modal-head">
+            <h2 class="welcome2__modal-title" id="welcome2-modal-install-docker-title">Install apps - Docker image</h2>
+            <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+          </div>
+          <div class="welcome2__modal-body">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Download and start the installation</p>
+              <div class="welcome2__cmd"><pre id="welcome2-install-docker-cmd">curl -O https://download.onlyoffice.com/apps/apps-install.sh &amp;&amp; bash apps-install.sh docker</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__note welcome2__note--info">
+              <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Run as root</span>
+              <span class="welcome2__note-body">When installation is complete, open this server's IP address to finish setup. Docker supports amd64 and arm64.</span>
+            </div>
+          </div>
+          <div class="welcome2__modal-foot">
+            <a id="welcome2-install-docker-guide" class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx">Open full guide</a>
+            <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
+          </div>
+        </div>
+
+        <div class="install-variant install--linux" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-install-linux-title">
+          <div class="welcome2__modal-head">
+            <h2 class="welcome2__modal-title" id="welcome2-modal-install-linux-title">Install apps - Linux (DEB / RPM)</h2>
+            <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+          </div>
+          <div class="welcome2__modal-body">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Download and start the installation</p>
+              <div class="welcome2__cmd"><pre id="welcome2-install-linux-cmd">curl -O https://download.onlyoffice.com/apps/apps-install.sh &amp;&amp; bash apps-install.sh package</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__note welcome2__note--info">
+              <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Run as root</span>
+              <span class="welcome2__note-body">When installation is complete, open this server's IP address to finish setup.</span>
+            </div>
+          </div>
+          <div class="welcome2__modal-foot">
+            <a id="welcome2-install-linux-guide" class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-script.aspx#installingonlyofficedocspacefromdebrpmpackages_block">Open full guide</a>
+            <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
+          </div>
+        </div>
+
+        <div class="install-variant install--win" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-install-win-title">
+          <div class="welcome2__modal-head">
+            <h2 class="welcome2__modal-title" id="welcome2-modal-install-win-title">Install apps - Windows Server</h2>
+            <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+          </div>
+          <div class="welcome2__modal-body">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">1. Download and run the installer</p>
+              <p class="welcome2__field-desc">Download the .exe file, run it as Administrator, and follow the Setup Wizard. Windows Server 2016 or later is required.</p>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">2. Finish setup at</p>
+              <div class="welcome2__cmd"><pre>http://localhost/wizard</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="welcome2__modal-foot">
+            <a id="welcome2-install-win-download" class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://download.onlyoffice.com/apps/windows/ONLYOFFICE_Apps_Community_Win-install.latest.exe">Download .exe</a>
+            <a id="welcome2-install-win-guide" class="welcome2__btn welcome2__btn--ghost-light" target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docspace/installation/docspace-community-install-windows.aspx">Open full guide</a>
+          </div>
+        </div>
+          </div>
+            </div>
+
+    <!-- Enterprise / Developer trial modal: opened from the Community-only promo strip. -->
+    <div class="welcome2__overlay" id="welcome2-modal-trial" hidden>
+      <div class="welcome2__modal welcome2__modal--wide welcome2__modal--trial" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-trial-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-trial-title">Choose your upgrade path</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="welcome2__trial-offer">
+            <h3 class="welcome2__trial-offer-title">Both solutions include AI Tools, mobile editing, scalability and clustering, and tech support.</h3>
+            <p class="welcome2__trial-offer-desc">Pick the one that fits how you work.</p>
+          </div>
+
+          <div class="welcome2__trial-options">
+            <div class="welcome2__trial-option welcome2__trial-option--enterprise">
+              <div class="welcome2__trial-option-details">
+                <h3 class="welcome2__trial-option-title">Docs Enterprise</h3>
+                <p class="welcome2__trial-option-desc">For businesses that want to embed editors into the platform they use</p>
+                <ul class="welcome2__trial-features">
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-ai.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">AI Tools</span>
+                      <p class="welcome2__trial-feature-desc">Summarize documents, generate and refine text, translate content, and get smart writing assistance built right into your docs, sheets, slides, and PDFs.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-mobile.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Mobile editing</span>
+                      <p class="welcome2__trial-feature-desc">Edit docs, sheets, slides, PDFs right from your mobile browser, no app required.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-scale.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Scalability and clustering</span>
+                      <p class="welcome2__trial-feature-desc">Comfortably edit and collaborate on docs no matter what size your team is.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-support.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Tech support</span>
+                      <p class="welcome2__trial-feature-desc">Get quick, professional help for any issue you run into.</p>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <a class="welcome2__btn welcome2__btn--primary welcome2__btn--small welcome2__trial-cta" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download#docs-enterprise">Start 30-day free trial</a>
+            </div>
+
+            <div class="welcome2__trial-option welcome2__trial-option--developer">
+              <div class="welcome2__trial-option-details">
+                <h3 class="welcome2__trial-option-title">Docs Developer</h3>
+                <p class="welcome2__trial-option-desc">For businesses that want to customize and embed the editors into their own product</p>
+                <ul class="welcome2__trial-features">
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-full.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Full Enterprise feature set</span>
+                      <p class="welcome2__trial-feature-desc">Includes AI Tools, mobile editing, scalability and clustering, and tech support.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-white-label.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">White labeling</span>
+                      <p class="welcome2__trial-feature-desc">Customize the editors with your own branding to match your product.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-automation.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">Automation API</span>
+                      <p class="welcome2__trial-feature-desc">Interact with docs, sheets, slides, and forms from the outside.</p>
+                    </span>
+                  </li>
+                  <li class="welcome2__trial-feature">
+                    <span class="welcome2__trial-feature-icon" aria-hidden="true"><img src="css/trial-code.svg" alt="" width="16" height="16" /></span>
+                    <span class="welcome2__trial-feature-text">
+                      <span class="welcome2__trial-feature-title">API integration</span>
+                      <p class="welcome2__trial-feature-desc">Embed the editors directly into your own product or workflow.</p>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <a class="welcome2__btn welcome2__btn--primary welcome2__btn--small welcome2__trial-cta" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/download-developer#docs-developer">Start 30-day free trial</a>
+            </div>
+          </div>
+
+          <div class="welcome2__note">
+            <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Please note that the editors will be unavailable during the upgrade.</span>
+            <span class="welcome2__note-body">We recommend backing up your data before you start.</span>
+          </div>
+
+          <div class="welcome2__trial-divider" aria-hidden="true"></div>
+
+          <p class="welcome2__trial-links">
+            <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/demo-order.aspx">Request a free demo</a>
+            <span class="welcome2__trial-links-sep" aria-hidden="true">/</span>
+            <a target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/support-contact-form">Get tech assistance</a>
+            <span class="welcome2__trial-links-sep" aria-hidden="true">/</span>
+            <a href="mailto:sales@onlyoffice.com">Ask purchase questions</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test-example command modals (feedback #9). Platform variant shown via data-platform. -->
+    <div class="welcome2__overlay" id="welcome2-modal-test-start" hidden>
+      <div class="welcome2__modal" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-test-start-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-test-start-title">Test example</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="example-variant example--systemctl">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Start</p>
+              <div class="welcome2__cmd"><pre>sudo systemctl start ds-example</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Add to autostart</p>
+              <div class="welcome2__cmd"><pre>sudo systemctl enable ds-example</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--winsvc">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Start</p>
+              <div class="welcome2__cmd"><pre>net start DsExampleSvc</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Add to autostart</p>
+              <div class="welcome2__cmd"><pre>sc.exe config DsExampleSvc start= auto</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--docker">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Start</p>
+              <div class="welcome2__cmd"><pre>sudo docker exec $(sudo docker ps -q) sudo supervisorctl start ds:example</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Add to autostart</p>
+              <div class="welcome2__cmd"><pre>sudo docker exec $(sudo docker ps -q) sudo sed 's,autostart=false,autostart=true,' -i /etc/supervisor/conf.d/ds-example.conf</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--k8s">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Enable the test example in the Helm release</p>
+              <div class="welcome2__cmd"><pre>helm upgrade documentserver onlyoffice/docs --set example.enabled=true --no-hooks</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <p class="welcome2__k8s-note">
+              <code>documentserver</code> is the release name from the
+              <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#51-example-deployment-optional">official Kubernetes example</a>; replace it with your own release name if different.
+            </p>
+          </div>
+          <div class="welcome2__note">
+            <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Note</span>
+            <span class="welcome2__note-body">Use this only for testing purposes. Disable it before putting your server into production.</span>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <a class="welcome2__btn welcome2__btn--primary" href="../example/" target="_blank" rel="noopener noreferrer">Open test example</a>
+          <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="welcome2__overlay" id="welcome2-modal-test-stop" hidden>
+      <div class="welcome2__modal" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-test-stop-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-test-stop-title">Test example</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="example-variant example--systemctl">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Stop</p>
+              <div class="welcome2__cmd"><pre>sudo systemctl stop ds-example</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Remove from autostart</p>
+              <div class="welcome2__cmd"><pre>sudo systemctl disable ds-example</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--winsvc">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Stop</p>
+              <div class="welcome2__cmd"><pre>net stop DsExampleSvc</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Remove from autostart</p>
+              <div class="welcome2__cmd"><pre>sc.exe config DsExampleSvc start= demand</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--docker">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Stop</p>
+              <div class="welcome2__cmd"><pre>sudo docker exec $(sudo docker ps -q) sudo supervisorctl stop ds:example</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Remove from autostart</p>
+              <div class="welcome2__cmd"><pre>sudo docker exec $(sudo docker ps -q) sudo sed 's,autostart=true,autostart=false,' -i /etc/supervisor/conf.d/ds-example.conf</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--k8s">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Disable the test example in the Helm release</p>
+              <div class="welcome2__cmd"><pre>helm upgrade documentserver onlyoffice/docs --set example.enabled=false --no-hooks</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <p class="welcome2__k8s-note">
+              <code>documentserver</code> is the release name from the
+              <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#51-example-deployment-optional">official Kubernetes example</a>; replace it with your own release name if different.
+            </p>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Community -> Enterprise promo modal (feedback #11), opened by the Admin Panel button when no admin panel is present. -->
+    <div class="welcome2__overlay" id="welcome2-modal-admin-promo" hidden>
+      <div class="welcome2__modal welcome2__modal--wide welcome2__modal--app" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-admin-promo-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-admin-promo-title">Admin Panel</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="welcome2__modal-hero">
+            <h3 class="welcome2__modal-hero-title">Unlock full administrative control</h3>
+            <p class="welcome2__modal-hero-desc">Manage, monitor, and secure your ONLYOFFICE Docs - all from one Admin Panel.</p>
+          </div>
+          <div class="welcome2__modal-promo">
+            <ul class="welcome2__feature-list">
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-admin-1.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Centralized management</span>
+                  <p class="welcome2__feature-desc">Configure and control your instance from a secure web interface.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-admin-2.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Real-time monitoring</span>
+                  <p class="welcome2__feature-desc">Track performance, connections, and system health instantly.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-admin-3.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Advanced security controls</span>
+                  <p class="welcome2__feature-desc">Manage JWT, IP restrictions, and access policies.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-admin-4.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Flexible integrations</span>
+                  <p class="welcome2__feature-desc">Configure WOPI and connect with your existing systems.</p>
+                </span>
+              </li>
+              <li class="welcome2__feature">
+                <span class="welcome2__feature-icon" aria-hidden="true"><img src="css/feat-admin-5.svg" alt="" width="16" height="16" /></span>
+                <span class="welcome2__feature-text">
+                  <span class="welcome2__feature-title">Simplified administration</span>
+                  <p class="welcome2__feature-desc">Reduce manual work and manage everything faster.</p>
+                </span>
+              </li>
+            </ul>
+            <div class="welcome2__modal-shot">
+              <img data-src="css/modal-admin-promo.png" alt="" width="444" height="372" />
+            </div>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <a class="welcome2__btn welcome2__btn--primary" target="_blank" rel="noopener noreferrer" href="https://www.onlyoffice.com/docs-enterprise-prices.aspx">Upgrade to Enterprise</a>
+          <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin-panel start-commands modal (feedback #3/#10): shown when admin panel is unavailable in Enterprise. -->
+    <div class="welcome2__overlay" id="welcome2-modal-admin-start" hidden>
+      <div class="welcome2__modal" role="dialog" aria-modal="true" aria-labelledby="welcome2-modal-admin-start-title">
+        <div class="welcome2__modal-head">
+          <h2 class="welcome2__modal-title" id="welcome2-modal-admin-start-title">Admin Panel</h2>
+          <button type="button" class="welcome2__modal-close" data-modal-close aria-label="Close"></button>
+        </div>
+        <div class="welcome2__modal-body">
+          <div class="example-variant example--systemctl">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Start</p>
+              <div class="welcome2__cmd"><pre>sudo systemctl start ds-adminpanel</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Add to autostart</p>
+              <div class="welcome2__cmd"><pre>sudo systemctl enable ds-adminpanel</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--winsvc">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Start</p>
+              <div class="welcome2__cmd"><pre>net start DsAdminPanelSvc</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Add to autostart</p>
+              <div class="welcome2__cmd"><pre>sc.exe config DsAdminPanelSvc start= auto</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--docker">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Start</p>
+              <div class="welcome2__cmd"><pre>sudo docker exec $(sudo docker ps -q) sudo supervisorctl start ds:adminpanel</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Add to autostart</p>
+              <div class="welcome2__cmd"><pre>sudo docker exec $(sudo docker ps -q) sudo sed 's,autostart=false,autostart=true,' -i /etc/supervisor/conf.d/ds-adminpanel.conf</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+          </div>
+          <div class="example-variant example--k8s">
+            <div class="welcome2__cmd-group">
+              <p class="welcome2__field-label">Enable the Admin Panel in the Helm release</p>
+              <div class="welcome2__cmd"><pre>helm upgrade documentserver onlyoffice/docs --set adminpanel.enabled=true --no-hooks</pre><button class="welcome2__copy" type="button" aria-label="Copy command"></button></div>
+            </div>
+            <p class="welcome2__k8s-note">
+              <code>documentserver</code> is the release name from the
+              <a target="_blank" rel="noopener noreferrer" href="https://github.com/ONLYOFFICE/Kubernetes-Docs?tab=readme-ov-file#54-admin-panel-deployment-optional">official Kubernetes example</a>; replace it with your own release name if different.
+            </p>
+          </div>
+          <div class="welcome2__note welcome2__note--info">
+            <span class="welcome2__note-title"><span class="welcome2__note-icon" aria-hidden="true"></span>Important</span>
+            <span class="welcome2__note-body">The Admin Panel has no administrator account yet. The first administrator can only be created from the host - run <code>documentserver-admin create-admin</code>, then reload. See the <a target="_blank" rel="noopener noreferrer" href="https://helpcenter.onlyoffice.com/docs/installation/docs-admin-panel.aspx">Admin Panel guide</a>.</span>
+          </div>
+        </div>
+        <div class="welcome2__modal-foot">
+          <a class="welcome2__btn welcome2__btn--primary" href="../admin/" target="_blank" rel="noopener noreferrer">Open Admin Panel</a>
+          <button type="button" class="welcome2__btn welcome2__btn--ghost-light" data-modal-close>Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var heads = document.querySelectorAll('.welcome2__accordion-head[data-extras-toggle]');
+        if (!heads.length) return;
+        function toggle(head) {
+          var expanded = head.getAttribute('aria-expanded') === 'true';
+          head.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        }
+        Array.prototype.forEach.call(heads, function (head) {
+          head.addEventListener('click', function () {
+            toggle(head);
+          });
+          head.addEventListener('keydown', function (e) {
+            if (e.key === ' ' || e.key === 'Enter' || e.key === 'Spacebar') {
+              e.preventDefault();
+              toggle(head);
+            }
+          });
+        });
+      })();
+    </script>
+    <script>
+      (function () {
+        var block = document.querySelector('.requires-test-example');
+        if (!block) return;
+        // Open test example + every editor tile: navigate when the example is running;
+        // otherwise open the start-commands modal (feedback: same logic as the Open button).
+        Array.prototype.forEach.call(block.querySelectorAll('[data-test-open]'), function (el) {
+          el.addEventListener('click', function (e) {
+            var state = block.getAttribute('data-example-state');
+            if (state === 'up') return;
+            e.preventDefault();
+            // Probe still running: controls are disabled, do not open the start modal yet.
+            if (state === 'checking') return;
+            if (window.welcome2Modal) window.welcome2Modal.open('welcome2-modal-test-start', el);
+          });
+        });
+      })();
+    </script>
+    <script>
+      (function () {
+        var block = document.querySelector('.requires-test-example');
+        if (!block) return;
+        var badge = block.querySelector('.welcome2__status-badge');
+        // Gate the whole section while checking (incl. Stop) so none stays live with a sharp border.
+        var gated = block.querySelectorAll('[data-test-open], [data-modal-open]');
+
+        var labels = {checking: 'Checking...', up: 'Running', down: 'Not running', unknown: 'Status unknown'};
+        function setState(state) {
+          var busy = state === 'checking';
+          block.setAttribute('data-example-state', state);
+          block.setAttribute('aria-busy', busy ? 'true' : 'false');
+          Array.prototype.forEach.call(gated, function (el) {
+            if (busy) {
+              if (!el.hasAttribute('data-welcome2-tabindex')) {
+                el.setAttribute('data-welcome2-tabindex', el.getAttribute('tabindex') || '');
+              }
+              el.setAttribute('aria-disabled', 'true');
+              el.setAttribute('tabindex', '-1');
+              if (document.activeElement === el) el.blur();
+            } else {
+              var tabindex = el.getAttribute('data-welcome2-tabindex');
+              el.removeAttribute('aria-disabled');
+              el.removeAttribute('data-welcome2-tabindex');
+              if (tabindex) el.setAttribute('tabindex', tabindex);
+              else el.removeAttribute('tabindex');
+            }
+          });
+          if (badge) badge.textContent = labels[state] || labels.unknown;
+        }
+
+        // Disable the controls while the probe is in flight so a click cannot act on an
+        // intermediate status; behavior is tied to the probe, not to a guessed delay.
+        setState('checking');
+        if (typeof fetch !== 'function') {
+          setState('unknown');
+          return;
+        }
+
+        var settled = false;
+        function finish(state) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          setState(state);
+        }
+        // Safety net for a hung probe; 8s clears the Windows cold-connect (~4.3s) so a stopped service resolves via the fallback marker, not the timer.
+        var timer = setTimeout(function () {
+          finish('unknown');
+        }, 8000);
+
+        try {
+          fetch('../example/', {cache: 'no-store', credentials: 'same-origin'})
+            .then(function (r) {
+              return r.text().then(function (body) {
+                finish(body.indexOf('onlyoffice-example-fallback:1') !== -1 ? 'down' : r.ok ? 'up' : 'unknown');
+              });
+            })
+            .catch(function () {
+              finish('unknown');
+            });
+        } catch (e) {
+          finish('unknown');
+        }
+      })();
+    </script>
+    <script>
+      (function () {
+        var cmds = document.querySelectorAll('.welcome2__cmd');
+        if (!cmds.length) return;
+
+        function legacyCopy(text) {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'absolute';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = false;
+          try {
+            ok = document.execCommand('copy');
+          } catch (e) {
+            ok = false;
+          }
+          document.body.removeChild(ta);
+          return ok;
+        }
+
+        function markCopied(btn) {
+          btn.classList.add('is-copied');
+          setTimeout(function () {
+            btn.classList.remove('is-copied');
+          }, 1500);
+        }
+
+        Array.prototype.forEach.call(cmds, function (cmd) {
+          var btn = cmd.querySelector('.welcome2__copy');
+          var pre = cmd.querySelector('pre');
+          if (!btn || !pre) return;
+          btn.addEventListener('click', function () {
+            var text = (pre.textContent || '').replace(/\s+$/, '');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(
+                function () {
+                  markCopied(btn);
+                },
+                function () {
+                  if (legacyCopy(text)) markCopied(btn);
+                }
+              );
+            } else if (legacyCopy(text)) {
+              markCopied(btn);
+            }
+          });
+        });
+      })();
+    </script>
+    <script>
+      (function () {
+        var btn = document.querySelector('.requires-admin-panel');
+        if (!btn) return;
+        var hasPanel = document.documentElement.getAttribute('data-has-admin-panel') !== 'false';
+        var adminState = hasPanel ? 'checking' : 'down';
+        var originalTabindex = btn.getAttribute('tabindex') || '';
+        function setState(state) {
+          adminState = state;
+          if (state === 'checking') {
+            btn.setAttribute('aria-disabled', 'true');
+            btn.setAttribute('tabindex', '-1');
+            if (document.activeElement === btn) btn.blur();
+          } else {
+            btn.removeAttribute('aria-disabled');
+            if (originalTabindex) btn.setAttribute('tabindex', originalTabindex);
+            else btn.removeAttribute('tabindex');
+          }
+        }
+        // Enterprise: probe admin-panel availability (same mechanism as the test example).
+        if (hasPanel && typeof fetch === 'function') {
+          setState('checking');
+          var settled = false;
+          var finish = function (state) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            setState(state);
+          };
+          // Safety net for a hung probe; 8s clears the Windows cold-connect (~4.3s) so a stopped service resolves via the fallback marker, not the timer.
+          var timer = setTimeout(function () {
+            finish('unknown');
+          }, 8000);
+          try {
+            fetch('../admin/', {cache: 'no-store', credentials: 'same-origin'})
+              .then(function (r) {
+                // Nginx serves admin-disabled.html with HTTP 200 when down; detect the marker, not r.ok.
+                return r.text().then(function (body) {
+                  finish(body.indexOf('onlyoffice-adminpanel-fallback:1') !== -1 ? 'down' : r.ok ? 'up' : 'unknown');
+                });
+              })
+              .catch(function () {
+                finish('unknown');
+              });
+          } catch (e) {
+            finish('unknown');
+          }
+        } else if (hasPanel) {
+          // No fetch support: cannot probe, keep the button active and fall back to the start modal.
+          setState('down');
+        }
+        btn.addEventListener('click', function (e) {
+          if (!window.welcome2Modal) return;
+          // Probe still running: button is disabled, do not open a modal yet.
+          if (adminState === 'checking') {
+            e.preventDefault();
+            return;
+          }
+          if (!hasPanel) {
+            // Community -> Enterprise promo modal.
+            e.preventDefault();
+            window.welcome2Modal.open('welcome2-modal-admin-promo', btn);
+          } else if (adminState !== 'up') {
+            // Enterprise but admin panel not running -> start-commands modal.
+            e.preventDefault();
+            window.welcome2Modal.open('welcome2-modal-admin-start', btn);
+          }
+          // Enterprise + running -> navigate (default link behavior).
+        });
+      })();
+    </script>
+    <script>
+      (function () {
+        var officialName = document.documentElement.getAttribute('data-official-product-name') || '';
+        var firstWord = (officialName.split(' ')[0] || '').toLowerCase();
+        var KNOWN_EDITIONS = ['enterprise', 'developer'];
+        var edition = KNOWN_EDITIONS.indexOf(firstWord) !== -1 ? firstWord : 'community';
+        var script = edition === 'community' ? 'apps-install.sh' : 'apps-' + edition + '-install.sh';
+
+        // Commercial editions ship non-open-source apps, so the chip says only Free.
+        var appsChip = document.getElementById('welcome2-apps-chip');
+        if (appsChip && edition !== 'community') appsChip.textContent = 'Free';
+
+        ['docker', 'linux'].forEach(function (variant) {
+          var cmd = document.getElementById('welcome2-install-' + variant + '-cmd');
+          if (cmd) cmd.textContent = cmd.textContent.split(/apps(?:-\w+)?-install\.sh/).join(script);
+
+          var guide = document.getElementById('welcome2-install-' + variant + '-guide');
+          if (guide) guide.href = guide.href.replace('docspace-community-install-script.aspx', 'docspace-' + edition + '-install-script.aspx');
+        });
+
+        var editionTitleCase = edition.charAt(0).toUpperCase() + edition.slice(1);
+        var winDownload = document.getElementById('welcome2-install-win-download');
+        if (winDownload) winDownload.href = winDownload.href.replace('ONLYOFFICE_Apps_Community_Win-install', 'ONLYOFFICE_Apps_' + editionTitleCase + '_Win-install');
+
+        var winGuide = document.getElementById('welcome2-install-win-guide');
+        if (winGuide) winGuide.href = winGuide.href.replace('docspace-community-install-windows.aspx', 'docspace-' + edition + '-install-windows.aspx');
+      })();
+    </script>
+    <script>
+      (function () {
+        var open = [];
+        function focusables(root) {
+          return Array.prototype.slice
+            .call(root.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+            .filter(function (el) {
+              return el.offsetWidth > 0 || el.offsetHeight > 0 || el === document.activeElement;
+            });
+        }
+        function openModal(id, trigger) {
+          var ov = document.getElementById(id);
+          if (!ov) return;
+          ov.__trigger = trigger || document.activeElement;
+          ov.removeAttribute('hidden');
+          // Load screenshots on first open so they do not cost page-load bandwidth.
+          // Single high-res source via data-src; data-srcset is copied too if present.
+          Array.prototype.forEach.call(ov.querySelectorAll('img[data-src]'), function (im) {
+            if (im.getAttribute('src')) return;
+            var ss = im.getAttribute('data-srcset');
+            if (ss) im.setAttribute('srcset', ss);
+            im.setAttribute('src', im.getAttribute('data-src'));
+          });
+          if (!open.length) {
+            // Reserve the scrollbar width so the page does not shift when scroll locks.
+            var sbw = window.innerWidth - document.documentElement.clientWidth;
+            document.body.style.overflow = 'hidden';
+            if (sbw > 0) document.body.style.paddingRight = sbw + 'px';
+          }
+          open.push(ov);
+          var f = focusables(ov);
+          (f[0] || ov).focus();
+        }
+        function closeModal(ov) {
+          if (!ov) return;
+          ov.setAttribute('hidden', '');
+          var i = open.indexOf(ov);
+          if (i !== -1) open.splice(i, 1);
+          if (!open.length) {
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+          }
+          var t = ov.__trigger;
+          ov.__trigger = null;
+          if (t && typeof t.focus === 'function') t.focus();
+        }
+        document.addEventListener('click', function (e) {
+          var opener = e.target.closest && e.target.closest('[data-modal-open]');
+          if (opener) {
+            e.preventDefault();
+            openModal(opener.getAttribute('data-modal-open'), opener);
+            return;
+          }
+          var closer = e.target.closest && e.target.closest('[data-modal-close]');
+          if (closer) {
+            e.preventDefault();
+            closeModal(closer.closest('.welcome2__overlay'));
+            return;
+          }
+          if (e.target.classList && e.target.classList.contains('welcome2__overlay')) {
+            closeModal(e.target);
+          }
+        });
+        document.addEventListener('keydown', function (e) {
+          if (!open.length) return;
+          var top = open[open.length - 1];
+          if (e.key === 'Escape' || e.key === 'Esc') {
+            e.preventDefault();
+            closeModal(top);
+            return;
+          }
+          if (e.key === 'Tab') {
+            var f = focusables(top);
+            if (!f.length) {
+              e.preventDefault();
+              return;
+            }
+            var first = f[0],
+              last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+        });
+        window.welcome2Modal = { open: openModal, close: closeModal };
+      })();
+    </script>
+  </body>
+</html>

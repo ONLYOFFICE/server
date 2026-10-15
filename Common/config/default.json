@@ -1,5 +1,6 @@
 {
   "adminPanel": {
+    "host": "",
     "port": 9000
   },
   "statsd": {
@@ -9,13 +10,15 @@
     "prefix": "ds."
   },
   "aiSettings": {
+    "enable": true,
     "actions": {},
     "models": [],
     "providers": {},
     "version": 3,
     "timeout": "5m",
     "allowedCorsOrigins": ["https://onlyoffice.github.io", "https://onlyoffice-plugins.github.io"],
-    "proxy": ""
+    "allowBrowserProxy": true,
+    "pluginSettings": {}
   },
   "log": {
     "filePath": "",
@@ -280,6 +283,7 @@
     "modulusOld": "",
     "exponentOld": 65537,
     "privateKeyOld": "",
+    "requireIpFilterRule": true,
     "sendAuthorizationHeader": false,
     "refreshLockInterval": "10m",
     "dummy": {
@@ -294,6 +298,7 @@
     "filenameSecret": "secret.key",
     "filenameLicense": "license.lic",
     "defaultTenant": "localhost",
+    "licenseRevalidateInterval": 5,
     "cache": {
       "stdTTL": 300,
       "checkperiod": 60,
@@ -319,6 +324,7 @@
   "services": {
     "CoAuthoring": {
       "server": {
+        "host": "",
         "port": 8000,
         "workerpercpu": 1,
         "mode": "development",
@@ -347,14 +353,17 @@
         "documentFormatsFile": "../../document-formats/onlyoffice-docs-formats.json",
         "downloadFileAllowExt": ["pdf", "xlsx"],
         "tokenRequiredParams": true,
-        "forceSaveUsingButtonWithoutChanges": false
+        "forceSaveUsingButtonWithoutChanges": false,
+        "docbuilderEnable": true,
+        "convertServiceEnable": true
       },
       "requestDefaults": {
         "headers": {
-          "User-Agent": "Node.js/6.13",
+          "User-Agent": "DocumentServer",
           "Connection": "Keep-Alive"
         },
-        "rejectUnauthorized": true
+        "rejectUnauthorized": true,
+        "checksumVerification": true
       },
       "autoAssembly": {
         "enable": false,
@@ -364,7 +373,7 @@
       "utils": {
         "utils_common_fontdir": "null",
         "utils_fonts_search_patterns": "*.ttf;*.ttc;*.otf",
-        "limits_image_types_upload": "jpg;jpeg;jpe;png;gif;bmp;svg;tiff;tif;webp;heic;heif;avif",
+        "limits_image_types_upload": "jpg;jpeg;jpe;jfif;jif;png;gif;bmp;svg;tiff;tif;webp;heic;heif;avif",
         "limits_document_types_upload": "xlsx"
       },
       "sql": {
@@ -381,9 +390,9 @@
         "max_allowed_packet": 1048575,
         "pgPoolExtraOptions": {
           "idleTimeoutMillis": 30000,
-          "maxLifetimeSeconds ": 60000,
-          "statement_timeout ": 60000,
-          "query_timeout  ": 60000,
+          "maxLifetimeSeconds": 1800,
+          "statement_timeout": 0,
+          "query_timeout": 300000,
           "connectionTimeoutMillis": 60000
         },
         "damengExtraOptions": {
@@ -465,19 +474,20 @@
         "allowMetaIPAddress": false
       },
       "secret": {
-        "browser": {"string": "secret", "file": ""},
-        "inbox": {"string": "secret", "file": ""},
-        "outbox": {"string": "secret", "file": ""},
-        "session": {"string": "secret", "file": ""}
+        "browser": {"string": "developer-only-not-a-real-secret", "file": ""},
+        "inbox": {"string": "developer-only-not-a-real-secret", "file": ""},
+        "outbox": {"string": "developer-only-not-a-real-secret", "file": ""},
+        "session": {"string": "developer-only-not-a-real-secret", "file": ""}
       },
       "token": {
         "enable": {
-          "browser": false,
+          "browser": true,
           "request": {
-            "inbox": false,
-            "outbox": false
+            "inbox": true,
+            "outbox": true
           }
         },
+        "purposeCheck": "validate",
         "browser": {
           "secretFromInbox": true
         },
@@ -510,7 +520,6 @@
         "uri": "/web-apps/apps/common/main/resources/themes"
       },
       "editor": {
-        "spellcheckerUrl": "",
         "reconnection": {
           "attempts": 50,
           "delay": "2s"

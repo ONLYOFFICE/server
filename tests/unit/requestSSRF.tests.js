@@ -79,28 +79,23 @@ describe('Server-Side Request Forgery (SSRF)', () => {
   });
 
   it('should fetch', async () => {
-    const result = await utils.downloadUrlPromise(
-      ctx,
-      `http://${GOOD_HOST}:${GOOD_PORT}`,
-      commonTestParams.timeout,
-      commonTestParams.limit,
-      null,
-      false,
-      null
-    );
+    const result = await utils.downloadUrlPromise(ctx, `http://${GOOD_HOST}:${GOOD_PORT}`, {
+      timeout: commonTestParams.timeout,
+      limit: commonTestParams.limit
+    });
 
     expect(result.body.toString()).toBe('good');
   });
 
   it('should not fetch: denied ip', async () => {
     await expect(
-      utils.downloadUrlPromise(ctx, `http://${BAD_HOST}:${BAD_PORT}`, commonTestParams.timeout, commonTestParams.limit, null, false, null)
+      utils.downloadUrlPromise(ctx, `http://${BAD_HOST}:${BAD_PORT}`, {timeout: commonTestParams.timeout, limit: commonTestParams.limit})
     ).rejects.toThrow();
   });
 
   it('should not fetch: redirect to denied ip', async () => {
     await expect(
-      utils.downloadUrlPromise(ctx, `http://${GOOD_HOST}:${GOOD_PORT_REDIRECT}`, commonTestParams.timeout, commonTestParams.limit, null, false, null)
+      utils.downloadUrlPromise(ctx, `http://${GOOD_HOST}:${GOOD_PORT_REDIRECT}`, {timeout: commonTestParams.timeout, limit: commonTestParams.limit})
     ).rejects.toThrow();
   });
 });

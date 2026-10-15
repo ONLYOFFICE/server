@@ -32,7 +32,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 'use strict';
 
 const cluster = require('cluster');
@@ -55,7 +54,8 @@ if (cluster.isMaster) {
     const os = require('os');
     const license = require('./../../Common/sources/license');
 
-    const cfgLicenseFile = config.get('license.license_file');
+    const {resolveConfigPath} = require('./../../Common/sources/pathUtils');
+    const cfgLicenseFile = resolveConfigPath(config.get('license.license_file'));
     const cfgMaxProcessCount = config.get('FileConverter.converter.maxprocesscount');
 
     let workersCount = 0;
